@@ -35,7 +35,11 @@
     #alpha-range { accent-color: #ba5c39; }
     input[type="number"] { width: 100%; height: 36px; padding: 6px 8px; background: white; border: 1px solid #b8c4c3; border-radius: 4px; font: inherit; font-variant-numeric: tabular-nums; }
     .limits { display: flex; justify-content: space-between; margin-right: 106px; font-size: 11px; color: #718080; }
-    .actions { display: flex; gap: 12px; border-top: 1px solid #dbe2e1; padding-top: 18px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; border-top: 1px solid #dbe2e1; padding-top: 18px; }
+    .visibility { display: flex; gap: 8px; margin-left: auto; }
+    .visibility button { min-width: 0; padding: 0 10px; font-size: 12px; }
+    .visibility button[aria-pressed="true"] { background: #e8f2f0; border-color: #8aada7; }
+    @media (max-width: 580px) { .visibility { flex-basis: 100%; justify-content: flex-end; } }
     button { min-width: 112px; height: 40px; padding: 0 18px; font: inherit; font-weight: 550; border: 1px solid #b8c4c3; border-radius: 4px; background: white; color: #243334; cursor: pointer; }
     #toggle { background: #007f76; border-color: #007f76; color: white; }
     button:hover { filter: brightness(.95); }
@@ -59,8 +63,8 @@
       <div class="control">
         <label for="q-range">Total inflow rate <math><msub><mi>q</mi><mtext>total</mtext></msub></math> <span class="unit">[a.c/s]</span></label>
         <div class="control-row">
-          <input id="q-range" type="range" min="0" max="1" step="0.01" value="0.1">
-          <input id="q-value" type="number" min="0" max="1" step="0.01" value="0.10" aria-label="Total inflow rate in aircraft per second">
+          <input id="q-range" type="range" min="0" max="1" step="0.01" value="0.5">
+          <input id="q-value" type="number" min="0" max="1" step="0.01" value="0.50" aria-label="Total inflow rate in aircraft per second">
         </div>
         <div class="limits" aria-hidden="true"><span>0</span><span>1</span></div>
       </div>
@@ -73,12 +77,19 @@
         </div>
         <div class="limits" aria-hidden="true"><span>0</span><span>1</span></div>
       </div>
-      <div class="actions"><button id="toggle" type="button">Start</button><button id="reset" type="button">Reset</button></div>
+      <div class="actions">
+        <button id="toggle" type="button">Start</button><button id="reset" type="button">Reset</button>
+        <div class="visibility">
+          <button id="destinations" type="button" aria-pressed="true">Hide Destinations</button>
+          <button id="trajectories" type="button" aria-pressed="true">Hide Trajectories</button>
+        </div>
+      </div>
     </section>
   </main>
   <script src="simulation.js"></script>
   <script>
-    const defaults = Object.freeze({ q: 0.1, alpha: 0 });
+    const defaults = Object.freeze({ q: 0.5, alpha: 0 });
+    const visibility = { destinations: true, trajectories: true };
     const simulation = new AirSimulation();
     const state = { ...defaults, running: false, elapsed: 0 };
     const clock = document.querySelector('#clock');
@@ -164,6 +175,15 @@
     });
 
     const canvas = document.querySelector('#airspace');
+    for (const key of ['destinations', 'trajectories']) {
+      const button = document.querySelector(`#${key}`);
+      button.addEventListener('click', () => {
+        visibility[key] = !visibility[key];
+        button.setAttribute('aria-pressed', String(visibility[key]));
+        button.textContent = `${visibility[key] ? 'Hide' : 'Show'} ${key[0].toUpperCase() + key.slice(1)}`;
+        drawAirspace();
+      });
+    }
     function drawAirspace() {
       const size = canvas.clientWidth;
       const scale = window.devicePixelRatio || 1;
@@ -184,6 +204,42 @@
         ctx.moveTo(0, p); ctx.lineTo(size, p);
       }
       ctx.stroke();
+      // Draw route overlays first so every drone stays visible above them.
+      for (const trip of simulation.drones) {
+        const position = simulation.position(trip);
+        const x = position.x / 500 * size;
+        const y = (1 - position.y / 500) * size;
+        const dx = trip.destination.x / 500 * size;
+        const dy = (1 - trip.destination.y / 500) * size;
+        ctx.save();
+        ctx.strokeStyle = trip.kind === 'priority' ? '#d93644' : '#2478d4';
+        ctx.fillStyle = ctx.strokeStyle;
+        ctx.lineWidth = 1.2;
+        if (visibility.trajectories) {
+          ctx.globalAlpha = 0.45;
+          ctx.beginPath();
+          ctx.moveTo(trip.origin.x / 500 * size, (1 - trip.origin.y / 500) * size);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+        }
+        if (visibility.destinations) {
+          ctx.globalAlpha = 0.6;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(dx, dy); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 0.9;
+          ctx.beginPath();
+          for (let i = 0; i < 10; i++) {
+            const angle = -Math.PI / 2 + i * Math.PI / 5;
+            const radius = i % 2 === 0 ? 6 : 2.5;
+            const px = dx + Math.cos(angle) * radius;
+            const py = dy + Math.sin(angle) * radius;
+            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+          }
+          ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+      }
       for (const trip of simulation.drones) {
         const position = simulation.position(trip);
         const x = position.x / 500 * size;

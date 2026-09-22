@@ -33,7 +33,7 @@ test('OD geometry, exact speed, landing and reset', () => {
     for (const p of [trip.origin, trip.destination]) assert(p.x >= 0 && p.x <= 500 && p.y >= 0 && p.y <= 500);
     sim.time = 1;
     const p = sim.position(trip);
-    assert(Math.abs(Math.hypot(p.x - trip.origin.x, p.y - trip.origin.y) - 15) < 1e-10);
+    assert(Math.abs(Math.hypot(p.x - trip.origin.x, p.y - trip.origin.y) - 20) < 1e-10);
     sim.time = trip.duration;
     const end = sim.position(trip);
     assert(Math.hypot(end.x - trip.destination.x, end.y - trip.destination.y) < 1e-10);

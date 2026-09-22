@@ -22,7 +22,7 @@ class AirSimulation {
       destination = { x: this.random() * 500, y: this.random() * 500 };
       distance = Math.hypot(destination.x - origin.x, destination.y - origin.y);
     } while (distance < 100);
-    return { kind, entryTime, origin, destination, distance, duration: distance / 15 };
+    return { kind, entryTime, origin, destination, distance, duration: distance / 20 };
   }
 
   advance(dt, totalRate, alpha) {
