@@ -61,14 +61,15 @@ class AirSimulation {
       this.completionHistory.push({ time, count: ++this.completed });
     }
     // Keep one anchor before the rolling window to preserve its initial count.
-    const start = Math.max(0, end - 600);
+    const start = Math.max(0, end - 660);
     let remove = 0;
     while (remove + 1 < this.completionHistory.length && this.completionHistory[remove + 1].time <= start) remove++;
     if (remove) this.completionHistory.splice(0, remove);
   }
 
   completionSummary() {
-    const start = Math.max(0, this.time - 600);
+    // Whole-minute limits give exactly six even-minute ticks in 11 minutes.
+    const start = Math.max(0, Math.ceil((this.time - 660) / 60) * 60);
     let firstCount = this.completionHistory[0].count;
     for (const point of this.completionHistory) {
       if (point.time <= start) firstCount = point.count;
@@ -85,7 +86,7 @@ class AirSimulation {
       this.outflowMinute = minute;
     }
     const padding = Math.max(1, Math.ceil((this.completed - firstCount) * 0.05));
-    return { start, end: start + 600, firstCount,
+    return { start, end: start + 660, firstCount,
       minCount: Math.max(0, firstCount - padding), maxCount: this.completed + padding,
       outflow: this.outflow };
   }
