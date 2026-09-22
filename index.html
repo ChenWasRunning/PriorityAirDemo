@@ -13,7 +13,9 @@
     .airspace-layout { display: grid; grid-template-columns: minmax(0, 612px) minmax(260px, 1fr); gap: 28px; align-items: start; }
     .chart { min-width: 0; }
     .chart-area { position: relative; }
-    .chart-y-label { position: absolute; left: 12px; top: calc(50% - 16px); display: flex; align-items: center; white-space: nowrap; transform: translate(-50%, -50%) rotate(-90deg); font-size: 11px; color: #596767; }
+    .chart-y-label, .chart-x-label { position: absolute; display: flex; align-items: center; white-space: nowrap; font-size: 11px; color: #596767; background: #f5f7f7; padding: 2px 4px; pointer-events: none; }
+    .chart-y-label { left: 54px; top: 18px; }
+    .chart-x-label { right: 18px; bottom: 50px; }
     .outflow { margin-bottom: 10px; }
     .chart h2 { font-size: 14px; font-weight: 500; margin: 0 0 12px; }
     #completed-chart { aspect-ratio: auto; height: 280px; border: 0; background: transparent; }
@@ -87,6 +89,7 @@
         <div class="outflow"><math><mi>G</mi><mo>=</mo></math> <output id="outflow">0.00</output> [a.c/s]</div>
         <div class="chart-area">
           <span class="chart-y-label"><math><msub><mi>N</mi><mtext>comp</mtext></msub></math>&nbsp;[trips]</span>
+          <span class="chart-x-label">Time [min]</span>
           <canvas id="completed-chart" aria-label="Cumulative completed trips versus simulation time in minutes"></canvas>
         </div>
       </section>
@@ -345,7 +348,6 @@
       for (let time = Math.ceil(start / tickStep) * tickStep; time <= end; time += tickStep) {
         ctx.fillText(String(time / 60), x(time), bottom + 18);
       }
-      ctx.fillText('Time [min]', (left + right) / 2, height - 5);
       ctx.strokeStyle = '#788d8b'; ctx.beginPath();
       ctx.moveTo(left, top); ctx.lineTo(left, bottom); ctx.lineTo(right, bottom); ctx.stroke();
       ctx.save(); ctx.beginPath(); ctx.rect(left, top, right - left, bottom - top); ctx.clip();
