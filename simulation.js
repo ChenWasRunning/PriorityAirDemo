@@ -80,9 +80,9 @@ class AirSimulation {
       let atBoundary = 0, beforeWindow = 0;
       for (const point of this.completionHistory) {
         if (point.time <= boundary) atBoundary = point.count;
-        if (point.time <= boundary - 300) beforeWindow = point.count;
+        if (point.time <= boundary - 600) beforeWindow = point.count;
       }
-      this.outflow = (atBoundary - beforeWindow) / 300;
+      this.outflow = (atBoundary - beforeWindow) / 600;
       this.outflowMinute = minute;
     }
     const padding = Math.max(1, Math.ceil((this.completed - firstCount) * 0.05));

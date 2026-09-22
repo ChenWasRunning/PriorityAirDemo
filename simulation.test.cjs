@@ -25,15 +25,15 @@ test('outflow changes only on simulated minutes and excludes later completions',
   sim.time = 59;
   assert.equal(sim.completionSummary().outflow, 0);
   sim.time = 60;
-  assert.equal(sim.completionSummary().outflow, 3 / 300);
+  assert.equal(sim.completionSummary().outflow, 3 / 600);
   sim.time = 119;
-  assert.equal(sim.completionSummary().outflow, 3 / 300);
+  assert.equal(sim.completionSummary().outflow, 3 / 600);
   sim.time = 121;
-  assert.equal(sim.completionSummary().outflow, 6 / 300);
+  assert.equal(sim.completionSummary().outflow, 6 / 600);
   sim.reset();
   assert.equal(sim.completionSummary().outflow, 0);
 });
-test('chart uses an eleven-minute window, local count limits, and five-minute outflow', () => {
+test('chart uses an eleven-minute window, local count limits, and ten-minute outflow', () => {
   const sim = new AirSimulation(seeded());
   assert.equal(sim.completionSummary().end, 660);
   sim.time = 3960;
@@ -44,11 +44,11 @@ test('chart uses an eleven-minute window, local count limits, and five-minute ou
   assert.equal(summary.end / 60, 66);
   assert(summary.minCount > 0 && summary.minCount < 100);
   assert(summary.maxCount > 130);
-  assert.equal(summary.outflow, 20 / 300);
+  assert.equal(summary.outflow, 30 / 600);
   sim.time = 120;
   sim.completed = 10;
   sim.completionHistory = [{ time: 0, count: 0 }, { time: 60, count: 10 }];
-  assert.equal(sim.completionSummary().outflow, 10 / 300);
+  assert.equal(sim.completionSummary().outflow, 10 / 600);
 });
 test('eleven-minute axes always contain six two-minute ticks', () => {
   const sim = new AirSimulation(seeded());
