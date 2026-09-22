@@ -17,7 +17,8 @@
     .meta { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; margin-bottom: 10px; color: #596767; }
     output { font-variant-numeric: tabular-nums; }
     .airspace { position: relative; padding: 0 0 28px 28px; }
-    .legend { display: flex; justify-content: flex-end; gap: 16px; margin-bottom: 10px; font-size: 12px; }
+    .legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 16px; margin-bottom: 10px; font-size: 12px; }
+    .legend output { color: #596767; }
     .legend span { display: inline-flex; align-items: center; gap: 6px; }
     .legend i { width: 8px; height: 8px; border-radius: 50%; background: #d93644; }
     .legend .standard { background: #2478d4; }
@@ -54,7 +55,10 @@
       <span id="status" class="status" data-running="false" role="status">Ready</span>
     </header>
     <div class="meta"><span>2D airspace · 500 m × 500 m</span><output id="clock" aria-label="Simulation time">t = 0.0 s</output></div>
-    <div class="legend" aria-label="Drone classes"><span><i></i>Priority</span><span><i class="standard"></i>Standard</span></div>
+    <div class="legend" aria-label="Drone classes">
+      <span><i></i>Prioritized · <output id="next-priority"></output></span>
+      <span><i class="standard"></i>Standard · <output id="next-standard"></output></span>
+    </div>
     <div class="airspace">
       <canvas id="airspace" aria-label="Square airspace, x 500 meters by y 500 meters">500 m × 500 m airspace</canvas>
       <span class="x-axis">x · 500 m</span><span class="y-axis">y · 500 m</span>
@@ -105,6 +109,7 @@
       const render = () => {
         range.value = state[key];
         number.value = state[key].toFixed(2);
+        renderEntries();
       };
       const commit = () => {
         synchronize();
@@ -119,6 +124,7 @@
           synchronize();
           state[key] = number.valueAsNumber;
           range.value = state[key];
+          renderEntries();
         }
       });
       number.addEventListener('change', commit);
@@ -127,7 +133,19 @@
       bindings[key] = render;
     }
 
-    function renderClock() { clock.textContent = `t = ${state.elapsed.toFixed(1)} s`; }
+    function renderEntries() {
+      const rates = { priority: state.q * state.alpha, standard: state.q * (1 - state.alpha) };
+      for (const kind of ['priority', 'standard']) {
+        const time = rates[kind] > 0
+          ? `${(simulation.time + simulation.remaining[kind] / rates[kind]).toFixed(1)} sec`
+          : '—';
+        document.querySelector(`#next-${kind}`).textContent = `Next entry at ${time}`;
+      }
+    }
+    function renderClock() {
+      clock.textContent = `t = ${state.elapsed.toFixed(1)} s`;
+      renderEntries();
+    }
     function synchronize(now = performance.now()) {
       if (state.running && lastTime !== null) {
         simulation.advance(Math.max(0, now - lastTime) / 1000, state.q, state.alpha);
@@ -257,6 +275,7 @@
     }
     new ResizeObserver(drawAirspace).observe(canvas);
     drawAirspace();
+    renderEntries();
   </script>
 </body>
 </html>
