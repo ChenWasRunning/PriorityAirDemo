@@ -1,6 +1,20 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { AirSimulation } = require('./simulation');
+test('five-minute accumulation integrates exact fractional active times', () => {
+  const sim = new AirSimulation(seeded());
+  sim.drones = [{ entryTime: 0, duration: 10.5 }, { entryTime: 0, duration: 20.25 }];
+  sim.advance(30, 0, 0);
+  assert.equal(sim.meanAccumulation, 30.75 / 300);
+  sim.advance(280, 0, 0);
+  assert.equal(sim.meanAccumulation, 10.75 / 300);
+  sim.advance(20, 0, 0);
+  assert.equal(sim.meanAccumulation, 0);
+  assert(sim.activeTimeHistory.length <= 301);
+  sim.reset();
+  assert.equal(sim.activeTime, 0);
+  assert.equal(sim.meanAccumulation, 0);
+});
 test('flow labels capture two-minute boundaries and hold values between updates', () => {
   const sim = new AirSimulation(seeded());
   sim.advance(119.5, 1, 0.5);
@@ -55,7 +69,7 @@ test('accelerated advances record exact ten-second outflow and accumulation samp
   const reference = new AirSimulation(seeded());
   for (let i = 1; i <= 3; i++) {
     reference.advance(10, 1, 0.5);
-    assert.equal(sim.flowHistory[i].n, reference.drones.length);
+    assert.equal(sim.flowHistory[i].n, reference.activeTime / 300);
     assert.equal(sim.flowHistory[i].g, reference.completed / 300);
   }
   sim.advance(1000, 0, 0);

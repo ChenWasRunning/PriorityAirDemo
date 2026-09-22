@@ -14,6 +14,9 @@ class AirSimulation {
     this.completed = 0;
     this.outflowSecond = -1;
     this.outflow = 0;
+    this.activeTime = 0;
+    this.activeTimeHistory = [{ time: 0, value: 0 }];
+    this.meanAccumulation = 0;
     this.flowHistory = [{ time: 0, g: 0, n: 0 }];
     this.flowLabels = { time: 0, g: 0, n: 0 };
     this.completionHistory = [{ time: 0, count: 0 }];
@@ -40,9 +43,12 @@ class AirSimulation {
       const end = Math.min(target, Math.floor(this.time) + 1);
       this.advanceSegment(end - this.time, totalRate, alpha);
       if (Number.isInteger(end)) {
+        this.activeTimeHistory.push({ time: end, value: this.activeTime });
+        while (this.activeTimeHistory.length > 1 && this.activeTimeHistory[1].time <= end - 300) this.activeTimeHistory.shift();
+        this.meanAccumulation = Math.max(0, (this.activeTime - this.activeTimeHistory[0].value) / 300);
         this.completionSummary();
-        if (end % 10 === 0) this.flowHistory.push({ time: end, g: this.outflow, n: this.drones.length });
-        if (end % 120 === 0) this.flowLabels = { time: end, g: this.outflow, n: this.drones.length };
+        if (end % 10 === 0) this.flowHistory.push({ time: end, g: this.outflow, n: this.meanAccumulation });
+        if (end % 120 === 0) this.flowLabels = { time: end, g: this.outflow, n: this.meanAccumulation };
       }
     }
     while (this.flowHistory.length > 1 && this.flowHistory[1].time <= this.time - 600) this.flowHistory.shift();
@@ -51,6 +57,7 @@ class AirSimulation {
   advanceSegment(dt, totalRate, alpha) {
     const end = this.time + dt;
     const completions = [];
+    let activeTime = this.drones.length * dt;
     const rates = { priority: totalRate * alpha, standard: totalRate * (1 - alpha) };
     for (const kind of ['priority', 'standard']) {
       const rate = rates[kind];
@@ -61,6 +68,7 @@ class AirSimulation {
         cursor += this.remaining[kind] / rate;
         const trip = this.createTrip(kind, cursor);
         this.arrivals[kind]++;
+        activeTime += end - cursor;
         if (cursor + trip.duration > end) this.drones.push(trip);
         else completions.push(cursor + trip.duration);
         this.remaining[kind] = this.exponential();
@@ -75,8 +83,10 @@ class AirSimulation {
       return false;
     });
     for (const time of completions.sort((a, b) => a - b)) {
+      activeTime -= end - time;
       this.completionHistory.push({ time, count: ++this.completed });
     }
+    this.activeTime += activeTime;
     // Keep one anchor before the rolling window to preserve its initial count.
     const start = Math.max(0, end - 600);
     let remove = 0;
