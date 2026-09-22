@@ -17,6 +17,12 @@
     .meta { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; margin-bottom: 10px; color: #596767; }
     output { font-variant-numeric: tabular-nums; }
     .airspace { position: relative; padding: 0 0 28px 28px; }
+    .legend { display: flex; justify-content: flex-end; gap: 16px; margin-bottom: 10px; font-size: 12px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .legend i { width: 8px; height: 8px; border-radius: 50%; background: #d93644; }
+    .legend .standard { background: #2478d4; }
+    .equation { margin: 4px 0 10px; color: #596767; }
+    math { font-size: 16px; }
     canvas { display: block; width: 100%; aspect-ratio: 1; background: #fff; border: 1px solid #788d8b; }
     .x-axis { position: absolute; bottom: 4px; left: 28px; right: 0; text-align: center; font-size: 12px; }
     .y-axis { position: absolute; left: 0; top: 0; bottom: 28px; writing-mode: vertical-rl; transform: rotate(180deg); text-align: center; font-size: 12px; }
@@ -44,32 +50,36 @@
       <span id="status" class="status" data-running="false" role="status">Ready</span>
     </header>
     <div class="meta"><span>2D airspace · 500 m × 500 m</span><output id="clock" aria-label="Simulation time">t = 0.0 s</output></div>
+    <div class="legend" aria-label="Drone classes"><span><i></i>Priority</span><span><i class="standard"></i>Standard</span></div>
     <div class="airspace">
       <canvas id="airspace" aria-label="Square airspace, x 500 meters by y 500 meters">500 m × 500 m airspace</canvas>
       <span class="x-axis">x · 500 m</span><span class="y-axis">y · 500 m</span>
     </div>
     <section class="controls" aria-label="Simulation controls">
       <div class="control">
-        <label for="q-range">Inflow rate q <span class="unit">[a.c/s]</span></label>
+        <label for="q-range">Total inflow rate <math><msub><mi>q</mi><mtext>total</mtext></msub></math> <span class="unit">[a.c/s]</span></label>
         <div class="control-row">
-          <input id="q-range" type="range" min="0" max="1" step="0.01" value="0.5">
-          <input id="q-value" type="number" min="0" max="1" step="0.01" value="0.50" aria-label="Inflow rate q in aircraft per second">
+          <input id="q-range" type="range" min="0" max="1" step="0.01" value="0.1">
+          <input id="q-value" type="number" min="0" max="1" step="0.01" value="0.10" aria-label="Total inflow rate in aircraft per second">
         </div>
         <div class="limits" aria-hidden="true"><span>0</span><span>1</span></div>
       </div>
       <div class="control">
-        <label for="alpha-range">Priority ratio α</label>
+        <label for="alpha-range">Inflow priority ratio <math><mi>α</mi></math></label>
+        <div class="equation"><math aria-label="q priority equals alpha times q total"><msub><mi>q</mi><mtext>priority</mtext></msub><mo>=</mo><mi>α</mi><mo>·</mo><msub><mi>q</mi><mtext>total</mtext></msub></math></div>
         <div class="control-row">
-          <input id="alpha-range" type="range" min="0" max="1" step="0.01" value="0.5">
-          <input id="alpha-value" type="number" min="0" max="1" step="0.01" value="0.50" aria-label="Priority ratio alpha">
+          <input id="alpha-range" type="range" min="0" max="1" step="0.01" value="0">
+          <input id="alpha-value" type="number" min="0" max="1" step="0.01" value="0.00" aria-label="Inflow priority ratio alpha">
         </div>
         <div class="limits" aria-hidden="true"><span>0</span><span>1</span></div>
       </div>
       <div class="actions"><button id="toggle" type="button">Start</button><button id="reset" type="button">Reset</button></div>
     </section>
   </main>
+  <script src="simulation.js"></script>
   <script>
-    const defaults = Object.freeze({ q: 0.5, alpha: 0.5 });
+    const defaults = Object.freeze({ q: 0.1, alpha: 0 });
+    const simulation = new AirSimulation();
     const state = { ...defaults, running: false, elapsed: 0 };
     const clock = document.querySelector('#clock');
     const toggle = document.querySelector('#toggle');
@@ -86,14 +96,16 @@
         number.value = state[key].toFixed(2);
       };
       const commit = () => {
+        synchronize();
         if (Number.isFinite(number.valueAsNumber)) {
           state[key] = Math.round(Math.min(1, Math.max(0, number.valueAsNumber)) * 100) / 100;
         }
         render();
       };
-      range.addEventListener('input', () => { state[key] = range.valueAsNumber; render(); });
+      range.addEventListener('input', () => { synchronize(); state[key] = range.valueAsNumber; render(); });
       number.addEventListener('input', () => {
         if (number.validity.valid && Number.isFinite(number.valueAsNumber)) {
+          synchronize();
           state[key] = number.valueAsNumber;
           range.value = state[key];
         }
@@ -105,15 +117,22 @@
     }
 
     function renderClock() { clock.textContent = `t = ${state.elapsed.toFixed(1)} s`; }
+    function synchronize(now = performance.now()) {
+      if (state.running && lastTime !== null) {
+        simulation.advance(Math.max(0, now - lastTime) / 1000, state.q, state.alpha);
+        state.elapsed = simulation.time;
+        lastTime = now;
+        renderClock();
+        drawAirspace();
+      }
+    }
     function tick(now) {
       if (!state.running) return;
-      if (lastTime !== null) state.elapsed += (now - lastTime) / 1000;
-      lastTime = now;
-      renderClock();
+      synchronize(now);
       frameId = requestAnimationFrame(tick);
     }
     function pause() {
-      if (state.running && lastTime !== null) state.elapsed += (performance.now() - lastTime) / 1000;
+      synchronize();
       state.running = false;
       cancelAnimationFrame(frameId);
       frameId = null;
@@ -137,19 +156,23 @@
     document.querySelector('#reset').addEventListener('click', () => {
       pause();
       Object.assign(state, defaults, { elapsed: 0 });
+      simulation.reset();
       Object.values(bindings).forEach(render => render());
       renderClock();
       renderStatus('Ready');
+      drawAirspace();
     });
 
     const canvas = document.querySelector('#airspace');
     function drawAirspace() {
       const size = canvas.clientWidth;
       const scale = window.devicePixelRatio || 1;
-      canvas.width = Math.round(size * scale);
-      canvas.height = Math.round(size * scale);
+      if (canvas.width !== Math.round(size * scale) || canvas.height !== Math.round(size * scale)) {
+        canvas.width = Math.round(size * scale);
+        canvas.height = Math.round(size * scale);
+      }
       const ctx = canvas.getContext('2d');
-      ctx.scale(scale, scale);
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, size, size);
       ctx.strokeStyle = '#e5eceb';
@@ -161,6 +184,20 @@
         ctx.moveTo(0, p); ctx.lineTo(size, p);
       }
       ctx.stroke();
+      for (const trip of simulation.drones) {
+        const position = simulation.position(trip);
+        const x = position.x / 500 * size;
+        const y = (1 - position.y / 500) * size;
+        const angle = Math.atan2(-(trip.destination.y - trip.origin.y), trip.destination.x - trip.origin.x);
+        ctx.strokeStyle = trip.kind === 'priority' ? '#d93644' : '#2478d4';
+        ctx.fillStyle = ctx.strokeStyle;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x - Math.cos(angle) * 10, y - Math.sin(angle) * 10);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+      }
     }
     new ResizeObserver(drawAirspace).observe(canvas);
     drawAirspace();
