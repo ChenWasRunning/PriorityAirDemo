@@ -65,6 +65,22 @@ class AirSimulation {
     if (remove) this.completionHistory.splice(0, remove);
   }
 
+  completionSummary() {
+    const start = Math.max(0, this.time - 600);
+    let firstCount = this.completionHistory[0].count;
+    let beforeFiveMinutes = firstCount;
+    for (const point of this.completionHistory) {
+      if (point.time <= start) firstCount = point.count;
+      if (point.time <= this.time - 300) beforeFiveMinutes = point.count;
+    }
+    // Before five minutes, the unobserved pre-start period has zero completions.
+    if (this.time < 300) beforeFiveMinutes = 0;
+    const padding = Math.max(1, Math.ceil((this.completed - firstCount) * 0.05));
+    return { start, end: start + 600, firstCount,
+      minCount: Math.max(0, firstCount - padding), maxCount: this.completed + padding,
+      outflow: (this.completed - beforeFiveMinutes) / 300 };
+  }
+
   position(trip) {
     const fraction = Math.min(1, Math.max(0, (this.time - trip.entryTime) / trip.duration));
     return {

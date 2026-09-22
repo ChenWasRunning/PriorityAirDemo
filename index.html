@@ -12,6 +12,9 @@
     .meta, .legend, .controls { max-width: 612px; }
     .airspace-layout { display: grid; grid-template-columns: minmax(0, 612px) minmax(260px, 1fr); gap: 28px; align-items: start; }
     .chart { min-width: 0; }
+    .chart-area { position: relative; }
+    .chart-y-label { position: absolute; left: 12px; top: calc(50% - 16px); display: flex; align-items: center; white-space: nowrap; transform: translate(-50%, -50%) rotate(-90deg); font-size: 11px; color: #596767; }
+    .outflow { margin-bottom: 10px; }
     .chart h2 { font-size: 14px; font-weight: 500; margin: 0 0 12px; }
     #completed-chart { aspect-ratio: auto; height: 280px; border: 0; background: transparent; }
     .time-controls { display: flex; align-items: center; gap: 8px; margin-left: auto; }
@@ -81,7 +84,11 @@
       </div>
       <section class="chart" aria-label="Completed trips over time">
         <h2>Completed trips <math><msub><mi>N</mi><mtext>comp</mtext></msub></math> = <output id="completed-count">0</output></h2>
-        <canvas id="completed-chart" aria-label="Cumulative completed trips versus simulation time in minutes"></canvas>
+        <div class="outflow"><math><mi>G</mi><mo>=</mo></math> <output id="outflow">0.0</output> [a.c/s]</div>
+        <div class="chart-area">
+          <span class="chart-y-label"><math><msub><mi>N</mi><mtext>comp</mtext></msub></math>&nbsp;[trips]</span>
+          <canvas id="completed-chart" aria-label="Cumulative completed trips versus simulation time in minutes"></canvas>
+        </div>
       </section>
     </div>
     <section class="controls" aria-label="Simulation controls">
@@ -111,7 +118,7 @@
       </div>
     </section>
   </main>
-  <script src="simulation.js?v=completed-trips-1"></script>
+  <script src="simulation.js?v=completed-trips-2"></script>
   <script>
     const defaults = Object.freeze({ q: 0.5, alpha: 0 });
     const visibility = { destinations: true, trajectories: true };
@@ -316,33 +323,32 @@
       ctx.setTransform(scale, 0, 0, scale, 0, 0);
       ctx.clearRect(0, 0, width, height);
       const left = 48, right = width - 12, top = 12, bottom = height - 44;
-      const start = Math.max(0, simulation.time - 600);
-      const end = Math.max(60, simulation.time);
-      const maxCount = Math.max(5, Math.ceil(simulation.completed / 5) * 5);
+      const summary = simulation.completionSummary();
+      const { start, end, minCount, maxCount } = summary;
+      document.querySelector('#outflow').textContent = summary.outflow.toFixed(1);
       const x = time => left + (time - start) / (end - start) * (right - left);
-      const y = count => bottom - count / maxCount * (bottom - top);
+      const y = count => bottom - (count - minCount) / (maxCount - minCount) * (bottom - top);
       ctx.font = '11px system-ui';
       ctx.lineWidth = 1;
-      for (let i = 0; i <= 4; i++) {
-        const value = Math.round(maxCount * i / 4);
+      const tickCount = Math.min(4, maxCount - minCount);
+      for (let i = 0; i <= tickCount; i++) {
+        const value = Math.round(minCount + (maxCount - minCount) * i / tickCount);
         ctx.strokeStyle = '#dbe2e1';
         ctx.beginPath(); ctx.moveTo(left, y(value)); ctx.lineTo(right, y(value)); ctx.stroke();
         ctx.fillStyle = '#596767'; ctx.textAlign = 'right';
         ctx.fillText(String(value), left - 7, y(value) + 4);
       }
-      const tickStep = end - start > 300 ? 120 : 60;
+      const tickStep = 120;
       ctx.textAlign = 'center';
       for (let time = Math.ceil(start / tickStep) * tickStep; time <= end; time += tickStep) {
         ctx.fillText(String(time / 60), x(time), bottom + 18);
       }
       ctx.fillText('Time [min]', (left + right) / 2, height - 5);
-      ctx.save(); ctx.translate(12, (top + bottom) / 2); ctx.rotate(-Math.PI / 2);
-      ctx.fillText('N_comp [trips]', 0, 0); ctx.restore();
       ctx.strokeStyle = '#788d8b'; ctx.beginPath();
       ctx.moveTo(left, top); ctx.lineTo(left, bottom); ctx.lineTo(right, bottom); ctx.stroke();
       ctx.save(); ctx.beginPath(); ctx.rect(left, top, right - left, bottom - top); ctx.clip();
       ctx.strokeStyle = '#007f76'; ctx.lineWidth = 2; ctx.beginPath();
-      let previous = simulation.completionHistory[0].count;
+      let previous = summary.firstCount;
       ctx.moveTo(x(start), y(previous));
       for (const point of simulation.completionHistory) {
         if (point.time < start) continue;

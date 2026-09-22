@@ -19,6 +19,23 @@ test('completed counts and rolling history remain correct across large time step
 function seeded(seed = 42) {
   return () => { seed = (1664525 * seed + 1013904223) >>> 0; return seed / 4294967296; };
 }
+test('chart uses a full ten-minute window, local count limits, and five-minute outflow', () => {
+  const sim = new AirSimulation(seeded());
+  assert.equal(sim.completionSummary().end, 600);
+  sim.time = 3960;
+  sim.completed = 130;
+  sim.completionHistory = [{ time: 3300, count: 100 }, { time: 3600, count: 110 }, { time: 3800, count: 130 }];
+  const summary = sim.completionSummary();
+  assert.equal(summary.start / 60, 56);
+  assert.equal(summary.end / 60, 66);
+  assert(summary.minCount > 0 && summary.minCount < 100);
+  assert(summary.maxCount > 130);
+  assert.equal(summary.outflow, 20 / 300);
+  sim.time = 120;
+  sim.completed = 10;
+  sim.completionHistory = [{ time: 0, count: 0 }, { time: 60, count: 10 }];
+  assert.equal(sim.completionSummary().outflow, 10 / 300);
+});
 test('independent exponential streams produce the requested rates', () => {
   const sim = new AirSimulation(seeded());
   sim.advance(100000, 0.8, 0.25);
