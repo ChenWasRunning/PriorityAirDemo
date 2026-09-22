@@ -11,6 +11,8 @@ class AirSimulation {
   reset() {
     this.time = 0;
     this.drones = [];
+    this.completed = 0;
+    this.completionHistory = [{ time: 0, count: 0 }];
     this.arrivals = { priority: 0, standard: 0 };
     this.remaining = { priority: this.exponential(), standard: this.exponential() };
   }
@@ -29,6 +31,7 @@ class AirSimulation {
     if (!Number.isFinite(dt) || dt < 0 || !Number.isFinite(totalRate) || totalRate < 0 ||
         !Number.isFinite(alpha) || alpha < 0 || alpha > 1) throw new RangeError('Invalid simulation parameters');
     const end = this.time + dt;
+    const completions = [];
     const rates = { priority: totalRate * alpha, standard: totalRate * (1 - alpha) };
     for (const kind of ['priority', 'standard']) {
       const rate = rates[kind];
@@ -40,28 +43,26 @@ class AirSimulation {
         const trip = this.createTrip(kind, cursor);
         this.arrivals[kind]++;
         if (cursor + trip.duration > end) this.drones.push(trip);
+        else completions.push(cursor + trip.duration);
         this.remaining[kind] = this.exponential();
       }
       this.remaining[kind] -= rate * (end - cursor);
     }
     this.time = end;
-    this.drones = this.drones.filter(trip => trip.entryTime + trip.duration > end);
-  }
-
-  means() {
-    if (this.drones.length === 0) return { v: NaN, u: NaN, s: NaN };
-    let v = 0, u = 0, s = 0;
-    for (const trip of this.drones) {
-      const dx = trip.destination.x - trip.origin.x;
-      const dy = trip.destination.y - trip.origin.y;
-      const vx = dx / trip.duration;
-      const vy = dy / trip.duration;
-      v += Math.hypot(vx, vy);
-      u += (vx * dx + vy * dy) / trip.distance;
-      s += trip.distance;
+    this.drones = this.drones.filter(trip => {
+      const exit = trip.entryTime + trip.duration;
+      if (exit > end) return true;
+      completions.push(exit);
+      return false;
+    });
+    for (const time of completions.sort((a, b) => a - b)) {
+      this.completionHistory.push({ time, count: ++this.completed });
     }
-    const count = this.drones.length;
-    return { v: v / count, u: u / count, s: s / count };
+    // Keep one anchor before the rolling window to preserve its initial count.
+    const start = Math.max(0, end - 600);
+    let remove = 0;
+    while (remove + 1 < this.completionHistory.length && this.completionHistory[remove + 1].time <= start) remove++;
+    if (remove) this.completionHistory.splice(0, remove);
   }
 
   position(trip) {
