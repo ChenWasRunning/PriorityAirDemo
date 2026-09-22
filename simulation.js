@@ -68,8 +68,7 @@ class AirSimulation {
   }
 
   completionSummary() {
-    // Whole-minute limits give exactly six even-minute ticks in 11 minutes.
-    const start = Math.max(0, Math.ceil((this.time - 660) / 60) * 60);
+    const start = Math.max(0, this.time - 660);
     let firstCount = this.completionHistory[0].count;
     for (const point of this.completionHistory) {
       if (point.time <= start) firstCount = point.count;

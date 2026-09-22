@@ -50,7 +50,7 @@ test('chart uses an eleven-minute window, local count limits, and ten-minute out
   sim.completionHistory = [{ time: 0, count: 0 }, { time: 60, count: 10 }];
   assert.equal(sim.completionSummary().outflow, 10 / 600);
 });
-test('eleven-minute axes always contain six two-minute ticks', () => {
+test('eleven-minute axes slide continuously with fixed two-minute ticks', () => {
   const sim = new AirSimulation(seeded());
   for (const time of [0, 659, 660, 661, 720, 730, 3960, 10000]) {
     sim.time = time;
@@ -58,10 +58,16 @@ test('eleven-minute axes always contain six two-minute ticks', () => {
     const ticks = [];
     for (let t = Math.ceil(start / 120) * 120; t <= end; t += 120) ticks.push(t / 60);
     assert.equal(end - start, 660);
-    assert.equal(ticks.length, 6);
+    assert(ticks.length === 5 || ticks.length === 6);
     assert(time >= start && time <= end);
     if (time === 720) assert.deepEqual(ticks, [2, 4, 6, 8, 10, 12]);
   }
+  sim.time = 719.99;
+  const before = sim.completionSummary();
+  sim.time = 720.01;
+  const after = sim.completionSummary();
+  assert(Math.abs(after.start - before.start - 0.02) < 1e-9);
+  assert(Math.abs(after.end - before.end - 0.02) < 1e-9);
 });
 test('independent exponential streams produce the requested rates', () => {
   const sim = new AirSimulation(seeded());
