@@ -19,7 +19,7 @@
     .flow-panel { margin-top: 12px; }
     .flow-panel .chart-x-label { right: 54px; }
     .flow-panel .chart-y-label { color: #007f76; }
-    .chart-right-label { position: absolute; right: 54px; top: 18px; padding: 2px 4px; background: #f5f7f7; color: #a2532c; font-size: 11px; }
+    .chart-right-label { position: absolute; right: 54px; top: 42px; padding: 2px 4px; background: #f5f7f7; color: #a2532c; font-size: 11px; white-space: nowrap; }
     .chart-y-label::before { content: ''; width: 12px; border-top: 2px solid currentColor; margin-right: 4px; }
     .chart-right-label::before { content: ''; display: inline-block; width: 12px; border-top: 2px dashed currentColor; margin-right: 4px; vertical-align: middle; }
     .chart h2 { font-size: 14px; font-weight: 500; margin: 0 0 12px; }
@@ -97,8 +97,8 @@
           <canvas id="completed-chart" aria-label="Cumulative completed trips versus simulation time in minutes"></canvas>
         </div>
         <div class="chart-area flow-panel">
-          <span class="chart-y-label"><math><mi>G</mi></math>&nbsp;[a.c/s]</span>
-          <span class="chart-right-label"><math><mi>n</mi></math> [a.c]</span>
+          <span class="chart-y-label"><math><mi>G</mi><mo>=</mo></math>&nbsp;<output id="g-label">0.00</output>&nbsp;a.c/s</span>
+          <span class="chart-right-label"><math><mi>n</mi><mo>=</mo></math> <output id="n-label">0</output> a.c</span>
           <span class="chart-x-label">Time [min]</span>
           <canvas id="flow-chart" aria-label="Solid outflow on the left axis and dashed active accumulation on the right axis versus time in minutes"></canvas>
         </div>
@@ -131,7 +131,7 @@
       </div>
     </section>
   </main>
-  <script src="simulation.js?v=completed-trips-8"></script>
+  <script src="simulation.js?v=completed-trips-9"></script>
   <script>
     const defaults = Object.freeze({ q: 0.5, alpha: 0 });
     const visibility = { destinations: true, trajectories: true };
@@ -371,6 +371,12 @@
     }
     const flowChart = document.querySelector('#flow-chart');
     function drawFlow() {
+      const gLabel = document.querySelector('#g-label');
+      const nLabel = document.querySelector('#n-label');
+      const gText = simulation.flowLabels.g.toFixed(2);
+      const nText = String(simulation.flowLabels.n);
+      if (gLabel.textContent !== gText) gLabel.textContent = gText;
+      if (nLabel.textContent !== nText) nLabel.textContent = nText;
       const width = flowChart.clientWidth, height = flowChart.clientHeight;
       const scale = window.devicePixelRatio || 1;
       if (flowChart.width !== Math.round(width * scale) || flowChart.height !== Math.round(height * scale)) {

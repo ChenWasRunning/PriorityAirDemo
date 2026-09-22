@@ -15,6 +15,7 @@ class AirSimulation {
     this.outflowSecond = -1;
     this.outflow = 0;
     this.flowHistory = [{ time: 0, g: 0, n: 0 }];
+    this.flowLabels = { time: 0, g: 0, n: 0 };
     this.completionHistory = [{ time: 0, count: 0 }];
     this.arrivals = { priority: 0, standard: 0 };
     this.remaining = { priority: this.exponential(), standard: this.exponential() };
@@ -41,6 +42,7 @@ class AirSimulation {
       if (Number.isInteger(end)) {
         this.completionSummary();
         if (end % 10 === 0) this.flowHistory.push({ time: end, g: this.outflow, n: this.drones.length });
+        if (end % 120 === 0) this.flowLabels = { time: end, g: this.outflow, n: this.drones.length };
       }
     }
     while (this.flowHistory.length > 1 && this.flowHistory[1].time <= this.time - 600) this.flowHistory.shift();

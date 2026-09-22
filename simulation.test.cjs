@@ -1,6 +1,20 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { AirSimulation } = require('./simulation');
+test('flow labels capture two-minute boundaries and hold values between updates', () => {
+  const sim = new AirSimulation(seeded());
+  sim.advance(119.5, 1, 0.5);
+  assert.deepEqual(sim.flowLabels, { time: 0, g: 0, n: 0 });
+  sim.advance(1, 1, 0.5);
+  assert.deepEqual(sim.flowLabels, sim.flowHistory.find(p => p.time === 120));
+  const held = { ...sim.flowLabels };
+  sim.advance(119, 0, 0);
+  assert.deepEqual(sim.flowLabels, held);
+  sim.advance(1, 0, 0);
+  assert.deepEqual(sim.flowLabels, sim.flowHistory.find(p => p.time === 240));
+  sim.reset();
+  assert.deepEqual(sim.flowLabels, { time: 0, g: 0, n: 0 });
+});
 test('completed counts and rolling history remain correct across large time steps', () => {
   const sim = new AirSimulation(seeded());
   sim.advance(1200, 1, 0.5);
