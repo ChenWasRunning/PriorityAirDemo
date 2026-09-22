@@ -48,6 +48,22 @@ class AirSimulation {
     this.drones = this.drones.filter(trip => trip.entryTime + trip.duration > end);
   }
 
+  means() {
+    if (this.drones.length === 0) return { v: NaN, u: NaN, s: NaN };
+    let v = 0, u = 0, s = 0;
+    for (const trip of this.drones) {
+      const dx = trip.destination.x - trip.origin.x;
+      const dy = trip.destination.y - trip.origin.y;
+      const vx = dx / trip.duration;
+      const vy = dy / trip.duration;
+      v += Math.hypot(vx, vy);
+      u += (vx * dx + vy * dy) / trip.distance;
+      s += trip.distance;
+    }
+    const count = this.drones.length;
+    return { v: v / count, u: u / count, s: s / count };
+  }
+
   position(trip) {
     const fraction = Math.min(1, Math.max(0, (this.time - trip.entryTime) / trip.duration));
     return {

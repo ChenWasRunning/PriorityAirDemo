@@ -8,7 +8,17 @@
     :root { font-family: system-ui, sans-serif; color: #243334; background: #f5f7f7; font-size: 14px; }
     * { box-sizing: border-box; }
     body { margin: 0; }
-    main { width: min(100%, 660px); margin: 0 auto; padding: 24px 24px 32px; }
+    main { width: min(100%, 1000px); margin: 0 auto; padding: 24px 24px 32px; }
+    .meta, .legend, .controls { max-width: 612px; }
+    .airspace-layout { display: grid; grid-template-columns: minmax(0, 612px) minmax(260px, 1fr); gap: 28px; align-items: start; }
+    .quantities { display: grid; grid-template-columns: minmax(0, 1fr) 64px; gap: 18px 14px; margin: 0; padding-top: 12px; }
+    .quantities dt, .quantities dd { margin: 0; }
+    .quantities dd { text-align: right; font-variant-numeric: tabular-nums; }
+    @media (max-width: 850px) {
+      main { max-width: 660px; }
+      .airspace-layout { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+      .quantities { padding: 8px 0 16px; }
+    }
     header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
     h1 { font-size: 22px; margin: 0; font-weight: 650; }
     .status { display: flex; gap: 7px; align-items: center; font-size: 12px; color: #596767; }
@@ -59,9 +69,16 @@
       <span><i></i>Prioritized · <output id="next-priority"></output></span>
       <span><i class="standard"></i>Standard · <output id="next-standard"></output></span>
     </div>
-    <div class="airspace">
+    <div class="airspace-layout">
+      <div class="airspace">
       <canvas id="airspace" aria-label="Square airspace, x 500 meters by y 500 meters">500 m × 500 m airspace</canvas>
       <span class="x-axis">x · 500 m</span><span class="y-axis">y · 500 m</span>
+      </div>
+      <dl class="quantities" aria-label="Current active-drone means">
+        <dt>Mean true speed <math><mi>V</mi></math> [m/s]</dt><dd id="mean-v">—</dd>
+        <dt>Mean proj speed <math><mi>U</mi></math> [m/s]</dt><dd id="mean-u">—</dd>
+        <dt>Mean OD dist <math><mi>S</mi></math> [m]</dt><dd id="mean-s">—</dd>
+      </dl>
     </div>
     <section class="controls" aria-label="Simulation controls">
       <div class="control">
@@ -203,6 +220,10 @@
       });
     }
     function drawAirspace() {
+      const means = simulation.means();
+      for (const key of ['v', 'u', 's']) {
+        document.querySelector(`#mean-${key}`).textContent = Number.isFinite(means[key]) ? means[key].toFixed(2) : '—';
+      }
       const size = canvas.clientWidth;
       const scale = window.devicePixelRatio || 1;
       if (canvas.width !== Math.round(size * scale) || canvas.height !== Math.round(size * scale)) {

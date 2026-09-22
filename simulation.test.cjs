@@ -1,6 +1,17 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { AirSimulation } = require('./simulation');
+test('active-drone means use OD projection and handle an empty airspace', () => {
+  const sim = new AirSimulation(seeded());
+  assert(Number.isNaN(sim.means().v));
+  sim.drones = [
+    { origin: { x: 0, y: 0 }, destination: { x: 300, y: 400 }, distance: 500, duration: 25 },
+    { origin: { x: 200, y: 0 }, destination: { x: 0, y: 0 }, distance: 200, duration: 10 }
+  ];
+  assert.deepEqual(sim.means(), { v: 20, u: 20, s: 350 });
+  sim.reset();
+  assert(Number.isNaN(sim.means().s));
+});
 function seeded(seed = 42) {
   return () => { seed = (1664525 * seed + 1013904223) >>> 0; return seed / 4294967296; };
 }
