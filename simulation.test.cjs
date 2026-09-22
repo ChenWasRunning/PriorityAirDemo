@@ -19,19 +19,37 @@ test('completed counts and rolling history remain correct across large time step
 function seeded(seed = 42) {
   return () => { seed = (1664525 * seed + 1013904223) >>> 0; return seed / 4294967296; };
 }
-test('outflow changes only on simulated minutes and excludes later completions', () => {
+test('outflow changes on simulated seconds and excludes later completions', () => {
   const sim = new AirSimulation(seeded());
   sim.completionHistory = [{ time: 0, count: 0 }, { time: 50, count: 3 }, { time: 65, count: 6 }];
-  sim.time = 59;
+  sim.time = 49.9;
   assert.equal(sim.completionSummary().outflow, 0);
-  sim.time = 60;
+  sim.time = 50;
   assert.equal(sim.completionSummary().outflow, 3 / 300);
-  sim.time = 119;
+  sim.time = 64.9;
   assert.equal(sim.completionSummary().outflow, 3 / 300);
-  sim.time = 121;
+  sim.time = 65;
   assert.equal(sim.completionSummary().outflow, 6 / 300);
   sim.reset();
   assert.equal(sim.completionSummary().outflow, 0);
+});
+test('accelerated advances record exact ten-second outflow and accumulation samples', () => {
+  const sim = new AirSimulation(seeded());
+  sim.advance(35.7, 1, 0.5);
+  assert.deepEqual(sim.flowHistory.map(p => p.time), [0, 10, 20, 30]);
+  assert.equal(sim.outflowSecond, 35);
+  const reference = new AirSimulation(seeded());
+  for (let i = 1; i <= 3; i++) {
+    reference.advance(10, 1, 0.5);
+    assert.equal(sim.flowHistory[i].n, reference.drones.length);
+    assert.equal(sim.flowHistory[i].g, reference.completed / 300);
+  }
+  sim.advance(1000, 0, 0);
+  assert(sim.flowHistory.length <= 62);
+  assert.equal(sim.flowHistory.at(-1).n, 0);
+  assert.equal(sim.flowHistory.at(-1).g, 0);
+  sim.reset();
+  assert.deepEqual(sim.flowHistory, [{ time: 0, g: 0, n: 0 }]);
 });
 test('chart uses a ten-minute window, local count limits, and five-minute outflow', () => {
   const sim = new AirSimulation(seeded());

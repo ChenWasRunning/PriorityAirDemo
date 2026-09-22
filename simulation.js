@@ -12,8 +12,9 @@ class AirSimulation {
     this.time = 0;
     this.drones = [];
     this.completed = 0;
-    this.outflowMinute = -1;
+    this.outflowSecond = -1;
     this.outflow = 0;
+    this.flowHistory = [{ time: 0, g: 0, n: 0 }];
     this.completionHistory = [{ time: 0, count: 0 }];
     this.arrivals = { priority: 0, standard: 0 };
     this.remaining = { priority: this.exponential(), standard: this.exponential() };
@@ -32,6 +33,20 @@ class AirSimulation {
   advance(dt, totalRate, alpha) {
     if (!Number.isFinite(dt) || dt < 0 || !Number.isFinite(totalRate) || totalRate < 0 ||
         !Number.isFinite(alpha) || alpha < 0 || alpha > 1) throw new RangeError('Invalid simulation parameters');
+    const target = this.time + dt;
+    // Resolve every second even when accelerated frames cross several samples.
+    while (this.time < target) {
+      const end = Math.min(target, Math.floor(this.time) + 1);
+      this.advanceSegment(end - this.time, totalRate, alpha);
+      if (Number.isInteger(end)) {
+        this.completionSummary();
+        if (end % 10 === 0) this.flowHistory.push({ time: end, g: this.outflow, n: this.drones.length });
+      }
+    }
+    while (this.flowHistory.length > 1 && this.flowHistory[1].time <= this.time - 600) this.flowHistory.shift();
+  }
+
+  advanceSegment(dt, totalRate, alpha) {
     const end = this.time + dt;
     const completions = [];
     const rates = { priority: totalRate * alpha, standard: totalRate * (1 - alpha) };
@@ -73,16 +88,16 @@ class AirSimulation {
     for (const point of this.completionHistory) {
       if (point.time <= start) firstCount = point.count;
     }
-    const minute = Math.floor(this.time / 60);
-    if (minute !== this.outflowMinute) {
-      const boundary = minute * 60;
+    const second = Math.floor(this.time);
+    if (second !== this.outflowSecond) {
+      const boundary = second;
       let atBoundary = 0, beforeWindow = 0;
       for (const point of this.completionHistory) {
         if (point.time <= boundary) atBoundary = point.count;
         if (point.time <= boundary - 300) beforeWindow = point.count;
       }
       this.outflow = (atBoundary - beforeWindow) / 300;
-      this.outflowMinute = minute;
+      this.outflowSecond = second;
     }
     const padding = Math.max(1, Math.ceil((this.completed - firstCount) * 0.05));
     return { start, end: start + 600, firstCount,

@@ -16,9 +16,14 @@
     .chart-y-label, .chart-x-label { position: absolute; display: flex; align-items: center; white-space: nowrap; font-size: 11px; color: #596767; background: #f5f7f7; padding: 2px 4px; pointer-events: none; }
     .chart-y-label { left: 54px; top: 18px; }
     .chart-x-label { right: 18px; bottom: 50px; }
-    .outflow { margin-bottom: 10px; }
+    .flow-panel { margin-top: 12px; }
+    .flow-panel .chart-x-label { right: 54px; }
+    .flow-panel .chart-y-label { color: #007f76; }
+    .chart-right-label { position: absolute; right: 54px; top: 18px; padding: 2px 4px; background: #f5f7f7; color: #a2532c; font-size: 11px; }
+    .chart-y-label::before { content: ''; width: 12px; border-top: 2px solid currentColor; margin-right: 4px; }
+    .chart-right-label::before { content: ''; display: inline-block; width: 12px; border-top: 2px dashed currentColor; margin-right: 4px; vertical-align: middle; }
     .chart h2 { font-size: 14px; font-weight: 500; margin: 0 0 12px; }
-    #completed-chart { aspect-ratio: auto; height: 280px; border: 0; background: transparent; }
+    #completed-chart, #flow-chart { aspect-ratio: auto; height: 260px; border: 0; background: transparent; }
     .time-controls { display: flex; align-items: center; gap: 8px; margin-left: auto; }
     #speed { width: 90px; }
     #speed-value { min-width: 32px; }
@@ -86,11 +91,16 @@
       </div>
       <section class="chart" aria-label="Completed trips over time">
         <h2>Completed trips <math><msub><mi>N</mi><mtext>comp</mtext></msub></math> = <output id="completed-count">0</output></h2>
-        <div class="outflow"><math><mi>G</mi><mo>=</mo></math> <output id="outflow">0.00</output> [a.c/s]</div>
         <div class="chart-area">
           <span class="chart-y-label"><math><msub><mi>N</mi><mtext>comp</mtext></msub></math>&nbsp;[trips]</span>
           <span class="chart-x-label">Time [min]</span>
           <canvas id="completed-chart" aria-label="Cumulative completed trips versus simulation time in minutes"></canvas>
+        </div>
+        <div class="chart-area flow-panel">
+          <span class="chart-y-label"><math><mi>G</mi></math>&nbsp;[a.c/s]</span>
+          <span class="chart-right-label"><math><mi>n</mi></math> [a.c]</span>
+          <span class="chart-x-label">Time [min]</span>
+          <canvas id="flow-chart" aria-label="Solid outflow on the left axis and dashed active accumulation on the right axis versus time in minutes"></canvas>
         </div>
       </section>
     </div>
@@ -121,7 +131,7 @@
       </div>
     </section>
   </main>
-  <script src="simulation.js?v=completed-trips-7"></script>
+  <script src="simulation.js?v=completed-trips-8"></script>
   <script>
     const defaults = Object.freeze({ q: 0.5, alpha: 0 });
     const visibility = { destinations: true, trajectories: true };
@@ -328,9 +338,6 @@
       const left = 48, right = width - 12, top = 12, bottom = height - 44;
       const summary = simulation.completionSummary();
       const { start, end, minCount, maxCount } = summary;
-      const outflow = document.querySelector('#outflow');
-      const outflowText = summary.outflow.toFixed(2);
-      if (outflow.textContent !== outflowText) outflow.textContent = outflowText;
       const x = time => left + (time - start) / (end - start) * (right - left);
       const y = count => bottom - (count - minCount) / (maxCount - minCount) * (bottom - top);
       ctx.font = '11px system-ui';
@@ -360,7 +367,45 @@
         previous = point.count;
       }
       ctx.lineTo(x(simulation.time), y(previous)); ctx.stroke(); ctx.restore();
+      drawFlow();
     }
+    const flowChart = document.querySelector('#flow-chart');
+    function drawFlow() {
+      const width = flowChart.clientWidth, height = flowChart.clientHeight;
+      const scale = window.devicePixelRatio || 1;
+      if (flowChart.width !== Math.round(width * scale) || flowChart.height !== Math.round(height * scale)) {
+        flowChart.width = Math.round(width * scale); flowChart.height = Math.round(height * scale);
+      }
+      const ctx = flowChart.getContext('2d');
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+      const { start, end } = simulation.completionSummary();
+      const left = 48, right = width - 48, top = 12, bottom = height - 44;
+      const points = simulation.flowHistory;
+      const gmax = Math.max(0.1, ...points.map(p => p.g)) * 1.1;
+      const nmax = Math.max(4, Math.ceil(Math.max(...points.map(p => p.n)) * 1.1 / 4) * 4);
+      const x = t => left + (t - start) / (end - start) * (right - left);
+      const y = (v, max) => bottom - v / max * (bottom - top);
+      ctx.font = '11px system-ui'; ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const py = y(i / 4, 1);
+        ctx.strokeStyle = '#dbe2e1'; ctx.beginPath(); ctx.moveTo(left, py); ctx.lineTo(right, py); ctx.stroke();
+        ctx.fillStyle = '#007f76'; ctx.textAlign = 'right'; ctx.fillText((gmax * i / 4).toFixed(2), left - 6, py + 4);
+        ctx.fillStyle = '#a2532c'; ctx.textAlign = 'left'; ctx.fillText(String(nmax * i / 4), right + 6, py + 4);
+      }
+      ctx.fillStyle = '#596767'; ctx.textAlign = 'center';
+      for (let t = Math.ceil(start / 120) * 120; t <= end; t += 120) ctx.fillText(String(t / 60), x(t), bottom + 18);
+      ctx.strokeStyle = '#788d8b'; ctx.beginPath();
+      ctx.moveTo(left, top); ctx.lineTo(left, bottom); ctx.lineTo(right, bottom); ctx.lineTo(right, top); ctx.stroke();
+      ctx.save(); ctx.beginPath(); ctx.rect(left, top, right - left, bottom - top); ctx.clip();
+      for (const [key, max, color, dash] of [['g', gmax, '#007f76', []], ['n', nmax, '#a2532c', [5, 4]]]) {
+        ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash(dash); ctx.beginPath();
+        points.forEach((point, i) => { if (i === 0) ctx.moveTo(x(point.time), y(point[key], max)); else ctx.lineTo(x(point.time), y(point[key], max)); });
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    new ResizeObserver(drawFlow).observe(flowChart);
     new ResizeObserver(drawCompleted).observe(chart);
     drawCompleted();
     drawAirspace();
