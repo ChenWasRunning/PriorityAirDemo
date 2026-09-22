@@ -5,8 +5,8 @@ test('completed counts and rolling history remain correct across large time step
   const sim = new AirSimulation(seeded());
   sim.advance(1200, 1, 0.5);
   assert.equal(sim.completed + sim.drones.length, sim.arrivals.priority + sim.arrivals.standard);
-  assert(sim.completionHistory[0].time <= 540);
-  assert(sim.completionHistory[1].time > 540);
+  assert(sim.completionHistory[0].time <= 600);
+  assert(sim.completionHistory[1].time > 600);
   assert.equal(sim.completionHistory.at(-1).count, sim.completed);
   const arrivals = sim.arrivals.priority + sim.arrivals.standard;
   sim.advance(1000, 0, 0);
@@ -25,39 +25,39 @@ test('outflow changes only on simulated minutes and excludes later completions',
   sim.time = 59;
   assert.equal(sim.completionSummary().outflow, 0);
   sim.time = 60;
-  assert.equal(sim.completionSummary().outflow, 3 / 600);
+  assert.equal(sim.completionSummary().outflow, 3 / 300);
   sim.time = 119;
-  assert.equal(sim.completionSummary().outflow, 3 / 600);
+  assert.equal(sim.completionSummary().outflow, 3 / 300);
   sim.time = 121;
-  assert.equal(sim.completionSummary().outflow, 6 / 600);
+  assert.equal(sim.completionSummary().outflow, 6 / 300);
   sim.reset();
   assert.equal(sim.completionSummary().outflow, 0);
 });
-test('chart uses an eleven-minute window, local count limits, and ten-minute outflow', () => {
+test('chart uses a ten-minute window, local count limits, and five-minute outflow', () => {
   const sim = new AirSimulation(seeded());
-  assert.equal(sim.completionSummary().end, 660);
+  assert.equal(sim.completionSummary().end, 600);
   sim.time = 3960;
   sim.completed = 130;
   sim.completionHistory = [{ time: 3300, count: 100 }, { time: 3600, count: 110 }, { time: 3800, count: 130 }];
   const summary = sim.completionSummary();
-  assert.equal(summary.start / 60, 55);
+  assert.equal(summary.start / 60, 56);
   assert.equal(summary.end / 60, 66);
   assert(summary.minCount > 0 && summary.minCount < 100);
   assert(summary.maxCount > 130);
-  assert.equal(summary.outflow, 30 / 600);
+  assert.equal(summary.outflow, 20 / 300);
   sim.time = 120;
   sim.completed = 10;
   sim.completionHistory = [{ time: 0, count: 0 }, { time: 60, count: 10 }];
-  assert.equal(sim.completionSummary().outflow, 10 / 600);
+  assert.equal(sim.completionSummary().outflow, 10 / 300);
 });
-test('eleven-minute axes slide continuously with fixed two-minute ticks', () => {
+test('ten-minute axes slide continuously with fixed two-minute ticks', () => {
   const sim = new AirSimulation(seeded());
-  for (const time of [0, 659, 660, 661, 720, 730, 3960, 10000]) {
+  for (const time of [0, 599, 600, 601, 720, 730, 3960, 10000]) {
     sim.time = time;
     const { start, end } = sim.completionSummary();
     const ticks = [];
     for (let t = Math.ceil(start / 120) * 120; t <= end; t += 120) ticks.push(t / 60);
-    assert.equal(end - start, 660);
+    assert.equal(end - start, 600);
     assert(ticks.length === 5 || ticks.length === 6);
     assert(time >= start && time <= end);
     if (time === 720) assert.deepEqual(ticks, [2, 4, 6, 8, 10, 12]);

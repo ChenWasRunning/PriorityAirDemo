@@ -61,14 +61,14 @@ class AirSimulation {
       this.completionHistory.push({ time, count: ++this.completed });
     }
     // Keep one anchor before the rolling window to preserve its initial count.
-    const start = Math.max(0, end - 660);
+    const start = Math.max(0, end - 600);
     let remove = 0;
     while (remove + 1 < this.completionHistory.length && this.completionHistory[remove + 1].time <= start) remove++;
     if (remove) this.completionHistory.splice(0, remove);
   }
 
   completionSummary() {
-    const start = Math.max(0, this.time - 660);
+    const start = Math.max(0, this.time - 600);
     let firstCount = this.completionHistory[0].count;
     for (const point of this.completionHistory) {
       if (point.time <= start) firstCount = point.count;
@@ -79,13 +79,13 @@ class AirSimulation {
       let atBoundary = 0, beforeWindow = 0;
       for (const point of this.completionHistory) {
         if (point.time <= boundary) atBoundary = point.count;
-        if (point.time <= boundary - 600) beforeWindow = point.count;
+        if (point.time <= boundary - 300) beforeWindow = point.count;
       }
-      this.outflow = (atBoundary - beforeWindow) / 600;
+      this.outflow = (atBoundary - beforeWindow) / 300;
       this.outflowMinute = minute;
     }
     const padding = Math.max(1, Math.ceil((this.completed - firstCount) * 0.05));
-    return { start, end: start + 660, firstCount,
+    return { start, end: start + 600, firstCount,
       minCount: Math.max(0, firstCount - padding), maxCount: this.completed + padding,
       outflow: this.outflow };
   }
