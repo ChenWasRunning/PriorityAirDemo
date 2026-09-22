@@ -12,6 +12,8 @@ class AirSimulation {
     this.time = 0;
     this.drones = [];
     this.completed = 0;
+    this.outflowMinute = -1;
+    this.outflow = 0;
     this.completionHistory = [{ time: 0, count: 0 }];
     this.arrivals = { priority: 0, standard: 0 };
     this.remaining = { priority: this.exponential(), standard: this.exponential() };
@@ -68,17 +70,24 @@ class AirSimulation {
   completionSummary() {
     const start = Math.max(0, this.time - 600);
     let firstCount = this.completionHistory[0].count;
-    let beforeFiveMinutes = firstCount;
     for (const point of this.completionHistory) {
       if (point.time <= start) firstCount = point.count;
-      if (point.time <= this.time - 300) beforeFiveMinutes = point.count;
     }
-    // Before five minutes, the unobserved pre-start period has zero completions.
-    if (this.time < 300) beforeFiveMinutes = 0;
+    const minute = Math.floor(this.time / 60);
+    if (minute !== this.outflowMinute) {
+      const boundary = minute * 60;
+      let atBoundary = 0, beforeWindow = 0;
+      for (const point of this.completionHistory) {
+        if (point.time <= boundary) atBoundary = point.count;
+        if (point.time <= boundary - 300) beforeWindow = point.count;
+      }
+      this.outflow = (atBoundary - beforeWindow) / 300;
+      this.outflowMinute = minute;
+    }
     const padding = Math.max(1, Math.ceil((this.completed - firstCount) * 0.05));
     return { start, end: start + 600, firstCount,
       minCount: Math.max(0, firstCount - padding), maxCount: this.completed + padding,
-      outflow: (this.completed - beforeFiveMinutes) / 300 };
+      outflow: this.outflow };
   }
 
   position(trip) {

@@ -84,7 +84,7 @@
       </div>
       <section class="chart" aria-label="Completed trips over time">
         <h2>Completed trips <math><msub><mi>N</mi><mtext>comp</mtext></msub></math> = <output id="completed-count">0</output></h2>
-        <div class="outflow"><math><mi>G</mi><mo>=</mo></math> <output id="outflow">0.0</output> [a.c/s]</div>
+        <div class="outflow"><math><mi>G</mi><mo>=</mo></math> <output id="outflow">0.00</output> [a.c/s]</div>
         <div class="chart-area">
           <span class="chart-y-label"><math><msub><mi>N</mi><mtext>comp</mtext></msub></math>&nbsp;[trips]</span>
           <canvas id="completed-chart" aria-label="Cumulative completed trips versus simulation time in minutes"></canvas>
@@ -118,7 +118,7 @@
       </div>
     </section>
   </main>
-  <script src="simulation.js?v=completed-trips-2"></script>
+  <script src="simulation.js?v=completed-trips-3"></script>
   <script>
     const defaults = Object.freeze({ q: 0.5, alpha: 0 });
     const visibility = { destinations: true, trajectories: true };
@@ -325,7 +325,9 @@
       const left = 48, right = width - 12, top = 12, bottom = height - 44;
       const summary = simulation.completionSummary();
       const { start, end, minCount, maxCount } = summary;
-      document.querySelector('#outflow').textContent = summary.outflow.toFixed(1);
+      const outflow = document.querySelector('#outflow');
+      const outflowText = summary.outflow.toFixed(2);
+      if (outflow.textContent !== outflowText) outflow.textContent = outflowText;
       const x = time => left + (time - start) / (end - start) * (right - left);
       const y = count => bottom - (count - minCount) / (maxCount - minCount) * (bottom - top);
       ctx.font = '11px system-ui';

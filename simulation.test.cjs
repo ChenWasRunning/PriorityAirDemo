@@ -19,6 +19,20 @@ test('completed counts and rolling history remain correct across large time step
 function seeded(seed = 42) {
   return () => { seed = (1664525 * seed + 1013904223) >>> 0; return seed / 4294967296; };
 }
+test('outflow changes only on simulated minutes and excludes later completions', () => {
+  const sim = new AirSimulation(seeded());
+  sim.completionHistory = [{ time: 0, count: 0 }, { time: 50, count: 3 }, { time: 65, count: 6 }];
+  sim.time = 59;
+  assert.equal(sim.completionSummary().outflow, 0);
+  sim.time = 60;
+  assert.equal(sim.completionSummary().outflow, 3 / 300);
+  sim.time = 119;
+  assert.equal(sim.completionSummary().outflow, 3 / 300);
+  sim.time = 121;
+  assert.equal(sim.completionSummary().outflow, 6 / 300);
+  sim.reset();
+  assert.equal(sim.completionSummary().outflow, 0);
+});
 test('chart uses a full ten-minute window, local count limits, and five-minute outflow', () => {
   const sim = new AirSimulation(seeded());
   assert.equal(sim.completionSummary().end, 600);
