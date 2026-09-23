@@ -1,7 +1,7 @@
 class AirSimulation {
   constructor(random = Math.random) {
     this.random = random;
-    this.control = Object.freeze({ detectionRadius: 45, maxSpeed: 15, step: 0.05, repulsion: 120, lateral: 0.6, arrivalRadius: 0.25 });
+    this.control = Object.freeze({ detectionRadius: 45, maxSpeed: 15, step: 0.05, repulsion: 100, lateral: 0.6, arrivalRadius: 0.25 });
     this.reset();
   }
 
