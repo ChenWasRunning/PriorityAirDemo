@@ -35,9 +35,15 @@
       main { max-width: 660px; }
       .airspace-layout { grid-template-columns: minmax(0, 1fr); gap: 8px; }
     }
-    header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+    header { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+    .brand-logos { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+    .brand-logos img { display: block; height: auto; object-fit: contain; }
+    .epfl-logo { width: 78px; }
+    .luts-logo { width: 84px; }
+    .brand-logos a { display: flex; align-items: center; min-height: 40px; }
+    .airspace-meta { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; }
     h1 { font-size: 22px; margin: 0; font-weight: 650; }
-    .status { display: flex; gap: 7px; align-items: center; font-size: 12px; color: #596767; }
+    .status { display: flex; gap: 7px; align-items: center; font-size: 12px; color: #596767; white-space: nowrap; }
     .status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #849292; }
     .status[data-running="true"]::before { background: #007f76; }
     .meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; font-size: 12px; margin-bottom: 10px; color: #596767; }
@@ -75,16 +81,28 @@
     #toggle { background: #007f76; border-color: #007f76; color: white; }
     button:hover { filter: brightness(.95); }
     :focus-visible { outline: 3px solid #65acda; outline-offset: 3px; }
-    @media (max-width: 400px) { main { padding: 18px 16px; } h1 { font-size: 20px; } }
+    @media (max-width: 400px) {
+      main { padding: 18px 16px; }
+      h1 { font-size: 20px; }
+      header { gap: 10px; }
+      .brand-logos { gap: 8px; }
+      .epfl-logo { width: 48px; }
+      .luts-logo { width: 54px; }
+    }
   </style>
 </head>
 <body>
   <main>
     <header>
       <h1>PriorityAirDemo</h1>
-      <span id="status" class="status" data-running="false" role="status">Ready</span>
+      <div class="brand-logos">
+        <img class="epfl-logo" src="assets/logos/LOGO_EPFL.svg" alt="EPFL" width="182" height="53">
+        <a href="https://www.epfl.ch/labs/luts/" aria-label="EPFL Urban Transport Systems Laboratory" title="EPFL LUTS">
+          <img class="luts-logo" src="assets/logos/LOGO_LUTS.png" alt="LUTS" width="947" height="315">
+        </a>
+      </div>
     </header>
-    <div class="meta"><span>2D airspace · 500 m × 500 m</span>
+    <div class="meta"><div class="airspace-meta"><span>2D airspace · 500 m × 500 m</span><span id="status" class="status" data-running="false" role="status">Ready</span></div>
       <div class="time-controls"><label for="speed">Speed</label><input id="speed" type="range" min="1" max="100" step="1" value="1"><output id="speed-value">1×</output><output id="clock" aria-label="Simulation time">t = 00:00</output></div>
     </div>
     <div class="legend" aria-label="Drone classes">
