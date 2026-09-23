@@ -37,9 +37,12 @@
       .airspace-layout { grid-template-columns: minmax(0, 1fr); gap: 8px; }
     }
     header { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+    .title-block { display: grid; gap: 2px; flex-shrink: 0; }
+    .byline { margin: 0; font-size: 12px; line-height: 1.2; color: #596767; white-space: nowrap; }
+    .byline em { font-style: italic; }
     .brand-logos { display: flex; align-items: center; gap: 10px; flex-shrink: 0; margin-left: auto; }
-    .brand-logos img { display: block; height: 16px; width: auto; object-fit: contain; }
-    .brand-logos a { display: flex; align-items: center; min-height: 40px; }
+    .brand-logos img { display: block; height: 34px; width: auto; object-fit: contain; }
+    .brand-logos a { display: flex; align-items: center; }
     .airspace-meta { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; }
     h1 { font-size: 22px; margin: 0; font-weight: 650; }
     .status { display: flex; gap: 7px; align-items: center; font-size: 12px; color: #596767; white-space: nowrap; }
@@ -82,10 +85,12 @@
     :focus-visible { outline: 3px solid #65acda; outline-offset: 3px; }
     @media (max-width: 400px) {
       main { padding: 18px 16px; }
-      h1 { font-size: 20px; }
-      header { gap: 10px; }
-      .brand-logos { gap: 8px; }
-      .brand-logos img { height: 15px; }
+      h1 { font-size: 15px; line-height: 1; }
+      .byline { font-size: 7px; line-height: 1; }
+      .title-block { gap: 1px; }
+      header { gap: 8px; }
+      .brand-logos { gap: 6px; }
+      .brand-logos img { height: 23px; }
       .meta, .status, .legend { font-size: 11px; }
       .status-time { gap: 6px; }
       .legend { gap: 8px; }
@@ -97,7 +102,10 @@
 <body>
   <main>
     <header>
-      <h1>PriorityAirDemo</h1>
+      <div class="title-block">
+        <h1>PriorityAirDemo</h1>
+        <p class="byline">Ran Chen, <em>Urban Transport Systems Lab</em></p>
+      </div>
       <div class="brand-logos">
         <img class="epfl-logo" src="assets/logos/LOGO_EPFL.svg" alt="EPFL" width="182" height="53">
         <a href="https://www.epfl.ch/labs/luts/" aria-label="EPFL Urban Transport Systems Laboratory" title="EPFL LUTS">
@@ -126,7 +134,7 @@
           </div>
           <span class="chart-axis-label">Outflow <math><mi>G</mi></math></span>
           <span class="chart-x-label">Time [min]</span>
-          <canvas id="flow-chart" aria-label="Five-minute average total, standard, and prioritized outflow versus time, right y-axis"></canvas>
+          <canvas id="flow-chart" aria-label="Five-minute average total, standard, and prioritized outflow versus time, left y-axis"></canvas>
         </div>
         <div class="chart-area accumulation-panel">
           <div class="plot-legend" aria-label="Accumulation legend">
@@ -136,7 +144,7 @@
           </div>
           <span class="chart-axis-label">Accumulation <math><mi>n</mi></math></span>
           <span class="chart-x-label">Time [min]</span>
-          <canvas id="accumulation-chart" aria-label="Five-minute average total, standard, and prioritized accumulation versus time, right y-axis"></canvas>
+          <canvas id="accumulation-chart" aria-label="Five-minute average total, standard, and prioritized accumulation versus time, left y-axis"></canvas>
         </div>
       </section>
     </div>
@@ -407,7 +415,7 @@
       ctx.setTransform(scale, 0, 0, scale, 0, 0);
       ctx.clearRect(0, 0, width, height);
       const { start, end } = simulation.completionSummary();
-      const left = 12, right = width - 48, top = 12, bottom = height - 44;
+      const left = 48, right = width - 12, top = 12, bottom = height - 44;
       const keys = [quantity, `${quantity}s`, `${quantity}p`];
       const colors = ['#007f76', '#2478d4', '#d93644'];
       // Reserve enough vertical headroom for all three in-plot legend rows.
@@ -418,12 +426,12 @@
       for (let i = 0; i <= 4; i++) {
         const py = y(i / 4, 1);
         ctx.strokeStyle = '#dbe2e1'; ctx.beginPath(); ctx.moveTo(left, py); ctx.lineTo(right, py); ctx.stroke();
-        ctx.fillStyle = '#596767'; ctx.textAlign = 'left'; ctx.fillText((maximum * i / 4).toFixed(quantity === 'g' ? 2 : 1), right + 6, py + 4);
+        ctx.fillStyle = '#596767'; ctx.textAlign = 'right'; ctx.fillText((maximum * i / 4).toFixed(quantity === 'g' ? 2 : 1), left - 6, py + 4);
       }
       ctx.fillStyle = '#596767'; ctx.textAlign = 'center';
       for (let t = Math.ceil(start / 120) * 120; t <= end; t += 120) ctx.fillText(String(t / 60), x(t), bottom + 18);
       ctx.strokeStyle = '#788d8b'; ctx.beginPath();
-      ctx.moveTo(left, bottom); ctx.lineTo(right, bottom); ctx.lineTo(right, top); ctx.stroke();
+      ctx.moveTo(left, top); ctx.lineTo(left, bottom); ctx.lineTo(right, bottom); ctx.stroke();
       ctx.save(); ctx.beginPath(); ctx.rect(left, top, right - left, bottom - top); ctx.clip();
       for (const [series, key] of keys.entries()) {
         ctx.strokeStyle = colors[series]; ctx.lineWidth = 2; ctx.setLineDash([]); ctx.beginPath();
