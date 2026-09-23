@@ -132,7 +132,7 @@
       </div>
     </section>
   </main>
-  <script src="simulation.js?v=completed-trips-10"></script>
+  <script src="simulation.js?v=potential-field-1"></script>
   <script>
     const defaults = Object.freeze({ q: 0.5, alpha: 0 });
     const visibility = { destinations: true, trajectories: true };
@@ -317,6 +317,7 @@
           ctx.globalAlpha = 0.45;
           ctx.beginPath();
           ctx.moveTo(trip.origin.x / 500 * size, (1 - trip.origin.y / 500) * size);
+          for (const point of trip.trail) ctx.lineTo(point.x / 500 * size, (1 - point.y / 500) * size);
           ctx.lineTo(x, y);
           ctx.stroke();
         }
@@ -342,7 +343,7 @@
         const position = simulation.position(trip);
         const x = position.x / 500 * size;
         const y = (1 - position.y / 500) * size;
-        const angle = Math.atan2(-(trip.destination.y - trip.origin.y), trip.destination.x - trip.origin.x);
+        const angle = Math.atan2(-trip.vy, trip.vx);
         ctx.strokeStyle = trip.kind === 'priority' ? '#d93644' : '#2478d4';
         ctx.fillStyle = ctx.strokeStyle;
         ctx.lineWidth = 1.5;

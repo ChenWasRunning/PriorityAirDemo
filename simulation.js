@@ -1,6 +1,7 @@
 class AirSimulation {
   constructor(random = Math.random) {
     this.random = random;
+    this.control = Object.freeze({ detectionRadius: 15, maxSpeed: 20, step: 0.05, repulsion: 80, lateral: 0.6, arrivalRadius: 0.25 });
     this.reset();
   }
 
@@ -10,6 +11,8 @@ class AirSimulation {
 
   reset() {
     this.time = 0;
+    this.nextId = 1;
+    this.neighborChecks = 0;
     this.drones = [];
     this.completed = 0;
     this.outflowSecond = -1;
@@ -31,7 +34,14 @@ class AirSimulation {
       destination = { x: this.random() * 500, y: this.random() * 500 };
       distance = Math.hypot(destination.x - origin.x, destination.y - origin.y);
     } while (distance < 100);
-    return { kind, entryTime, origin, destination, distance, duration: distance / 20 };
+    return this.makeTrip(kind, entryTime, origin, destination);
+  }
+
+  makeTrip(kind, entryTime, origin, destination) {
+    return { id: this.nextId++, kind, entryTime, origin, destination,
+      distance: Math.hypot(destination.x - origin.x, destination.y - origin.y),
+      x: origin.x, y: origin.y, vx: 0, vy: 0,
+      trail: [{ x: origin.x, y: origin.y }], trailSpacing: 1 };
   }
 
   advance(dt, totalRate, alpha) {
@@ -40,7 +50,7 @@ class AirSimulation {
     const target = this.time + dt;
     // Resolve every second even when accelerated frames cross several samples.
     while (this.time < target) {
-      const end = Math.min(target, Math.floor(this.time) + 1);
+      const end = Math.min(target, (Math.floor(this.time / this.control.step + 1e-7) + 1) * this.control.step, Math.floor(this.time) + 1);
       this.advanceSegment(end - this.time, totalRate, alpha);
       if (Number.isInteger(end)) {
         this.activeTimeHistory.push({ time: end, value: this.activeTime });
@@ -56,8 +66,7 @@ class AirSimulation {
 
   advanceSegment(dt, totalRate, alpha) {
     const end = this.time + dt;
-    const completions = [];
-    let activeTime = this.drones.length * dt;
+    const entries = [];
     const rates = { priority: totalRate * alpha, standard: totalRate * (1 - alpha) };
     for (const kind of ['priority', 'standard']) {
       const rate = rates[kind];
@@ -68,30 +77,103 @@ class AirSimulation {
         cursor += this.remaining[kind] / rate;
         const trip = this.createTrip(kind, cursor);
         this.arrivals[kind]++;
-        activeTime += end - cursor;
-        if (cursor + trip.duration > end) this.drones.push(trip);
-        else completions.push(cursor + trip.duration);
+        entries.push(trip);
         this.remaining[kind] = this.exponential();
       }
       this.remaining[kind] -= rate * (end - cursor);
     }
-    this.time = end;
-    this.drones = this.drones.filter(trip => {
-      const exit = trip.entryTime + trip.duration;
-      if (exit > end) return true;
-      completions.push(exit);
-      return false;
-    });
-    for (const time of completions.sort((a, b) => a - b)) {
-      activeTime -= end - time;
-      this.completionHistory.push({ time, count: ++this.completed });
+    for (const trip of entries.sort((a, b) => a.entryTime - b.entryTime)) {
+      this.moveDrones(trip.entryTime - this.time);
+      this.time = trip.entryTime;
+      this.drones.push(trip);
     }
-    this.activeTime += activeTime;
+    this.moveDrones(end - this.time);
+    this.time = end;
     // Keep one anchor before the rolling window to preserve its initial count.
     const start = Math.max(0, end - 600);
     let remove = 0;
     while (remove + 1 < this.completionHistory.length && this.completionHistory[remove + 1].time <= start) remove++;
     if (remove) this.completionHistory.splice(0, remove);
+  }
+
+  velocities(dt) {
+    const { detectionRadius: radius, maxSpeed, repulsion, lateral } = this.control;
+    const grid = new Map();
+    const key = (x, y) => `${x},${y}`;
+    for (const drone of this.drones) {
+      const cell = key(Math.floor(drone.x / radius), Math.floor(drone.y / radius));
+      if (!grid.has(cell)) grid.set(cell, []);
+      grid.get(cell).push(drone);
+    }
+    this.neighborChecks = 0;
+    return this.drones.map(drone => {
+      const dx = drone.destination.x - drone.x, dy = drone.destination.y - drone.y;
+      const distance = Math.hypot(dx, dy);
+      const speed = Math.min(maxSpeed, distance / dt);
+      let vx = distance > 0 ? dx / distance * speed : 0;
+      let vy = distance > 0 ? dy / distance * speed : 0;
+      const cx = Math.floor(drone.x / radius), cy = Math.floor(drone.y / radius);
+      for (let ix = cx - 1; ix <= cx + 1; ix++) {
+        for (let iy = cy - 1; iy <= cy + 1; iy++) {
+          for (const other of grid.get(key(ix, iy)) || []) {
+            if (other === drone || (drone.kind === 'priority' && other.kind !== 'priority')) continue;
+            this.neighborChecks++;
+            let rx = drone.x - other.x, ry = drone.y - other.y;
+            const squared = rx * rx + ry * ry;
+            if (squared >= radius * radius) continue;
+            const separation = Math.sqrt(squared);
+            if (separation < 1e-8) {
+              // Opposite deterministic directions for coincident positions.
+              const angle = Math.min(drone.id, other.id) * 2.399963229728653;
+              const sign = drone.id < other.id ? 1 : -1;
+              rx = Math.cos(angle) * sign; ry = Math.sin(angle) * sign;
+            } else { rx /= separation; ry /= separation; }
+            // Smooth finite-range potential gradient, no dense pair matrix.
+            const force = repulsion * (1 - separation / radius) ** 2;
+            const approaching = dx * rx + dy * ry < 0;
+            vx += force * (rx - (approaching ? lateral * ry : 0));
+            vy += force * (ry + (approaching ? lateral * rx : 0));
+          }
+        }
+      }
+      const norm = Math.hypot(vx, vy);
+      if (norm > maxSpeed) { vx *= maxSpeed / norm; vy *= maxSpeed / norm; }
+      return { vx, vy };
+    });
+  }
+
+  moveDrones(dt) {
+    if (dt <= 0 || this.drones.length === 0) return;
+    const velocities = this.velocities(dt);
+    const survivors = [], completions = [];
+    for (let i = 0; i < this.drones.length; i++) {
+      const drone = this.drones[i], velocity = velocities[i];
+      const nx = Math.max(0, Math.min(500, drone.x + velocity.vx * dt));
+      const ny = Math.max(0, Math.min(500, drone.y + velocity.vy * dt));
+      const sx = nx - drone.x, sy = ny - drone.y;
+      const dx = drone.destination.x - drone.x, dy = drone.destination.y - drone.y;
+      const length2 = sx * sx + sy * sy;
+      const fraction = length2 > 0 ? Math.max(0, Math.min(1, (dx * sx + dy * sy) / length2)) : 0;
+      if (Math.hypot(dx - fraction * sx, dy - fraction * sy) <= this.control.arrivalRadius) {
+        this.activeTime += dt * fraction;
+        completions.push(this.time + dt * fraction);
+        continue;
+      }
+      this.activeTime += dt;
+      drone.vx = sx / dt; drone.vy = sy / dt;
+      drone.x = nx; drone.y = ny;
+      const last = drone.trail[drone.trail.length - 1];
+      if (Math.hypot(nx - last.x, ny - last.y) >= drone.trailSpacing) {
+        drone.trail.push({ x: nx, y: ny });
+        if (drone.trail.length > 1024) {
+          drone.trail = drone.trail.filter((_, j) => j % 2 === 0);
+          drone.trailSpacing *= 2;
+        }
+      }
+      survivors.push(drone);
+    }
+    this.drones = survivors;
+    for (const time of completions.sort((a, b) => a - b)) this.completionHistory.push({ time, count: ++this.completed });
   }
 
   completionSummary() {
@@ -118,11 +200,7 @@ class AirSimulation {
   }
 
   position(trip) {
-    const fraction = Math.min(1, Math.max(0, (this.time - trip.entryTime) / trip.duration));
-    return {
-      x: trip.origin.x + fraction * (trip.destination.x - trip.origin.x),
-      y: trip.origin.y + fraction * (trip.destination.y - trip.origin.y)
-    };
+    return { x: trip.x, y: trip.y };
   }
 }
 
