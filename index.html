@@ -27,10 +27,11 @@
     .series-priority { color: #d93644; }
     #flow-chart, #accumulation-chart { aspect-ratio: auto; height: 280px; border: 0; background: transparent; }
     .accumulation-panel { margin-top: 12px; }
-    .time-controls { display: flex; align-items: center; gap: 8px; margin-left: auto; }
-    #speed { width: 90px; }
-    #speed-value { min-width: 32px; }
-    #clock { min-width: 90px; text-align: right; }
+    .time-controls { display: flex; align-items: center; gap: 6px; min-width: 0; margin-right: auto; }
+    #speed { width: 90px; min-width: 32px; }
+    #speed-value { min-width: 28px; }
+    .status-time { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    #clock { white-space: nowrap; text-align: right; }
     @media (max-width: 850px) {
       main { max-width: 660px; }
       .airspace-layout { grid-template-columns: minmax(0, 1fr); gap: 8px; }
@@ -47,9 +48,9 @@
     .meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; font-size: 12px; margin-bottom: 10px; color: #596767; }
     output { font-variant-numeric: tabular-nums; }
     .airspace { position: relative; padding: 0 0 28px 28px; }
-    .legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 16px; margin-bottom: 10px; font-size: 12px; }
+    .legend { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 12px; }
     .legend output { color: #596767; }
-    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .legend > span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0; }
     .legend i { width: 8px; height: 8px; border-radius: 50%; background: #d93644; }
     .legend .standard { background: #2478d4; }
     .equation { margin: 0; color: #596767; }
@@ -85,6 +86,11 @@
       header { gap: 10px; }
       .brand-logos { gap: 8px; }
       .brand-logos img { height: 15px; }
+      .meta, .status, .legend { font-size: 11px; }
+      .status-time { gap: 6px; }
+      .legend { gap: 8px; }
+      .legend > span { gap: 4px; }
+      #speed { width: 60px; }
     }
   </style>
 </head>
@@ -99,10 +105,10 @@
         </a>
       </div>
     </header>
-    <div class="meta"><div class="airspace-meta"><span>2D airspace · 500 m × 500 m</span><span id="status" class="status" data-running="false" role="status">Ready</span></div>
-      <div class="time-controls"><label for="speed">Speed</label><input id="speed" type="range" min="1" max="100" step="1" value="1"><output id="speed-value">1×</output><output id="clock" aria-label="Simulation time">t = 00:00</output></div>
+    <div class="meta"><div class="airspace-meta"><span>2D airspace · 500 m × 500 m</span><div class="status-time"><span id="status" class="status" data-running="false" role="status">Ready</span><output id="clock" aria-label="Simulation time">t = 00:00</output></div></div>
     </div>
     <div class="legend" aria-label="Drone classes">
+      <div class="time-controls"><label for="speed">Speed</label><input id="speed" type="range" min="1" max="100" step="1" value="1"><output id="speed-value">1×</output></div>
       <span><i></i>Prioritized</span>
       <span><i class="standard"></i>Standard</span>
     </div>
