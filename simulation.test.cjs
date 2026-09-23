@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { AirSimulation } = require('./simulation');
-test('15 m detection and class-specific yielding, with a 20 m/s speed cap', () => {
+test('25 m detection and class-specific yielding, with a 20 m/s speed cap', () => {
   const sim = new AirSimulation(seeded());
   const p = sim.makeTrip('priority', 0, { x: 200, y: 250 }, { x: 400, y: 250 });
   const s = sim.makeTrip('standard', 0, { x: 210, y: 250 }, { x: 0, y: 250 });
@@ -13,8 +13,22 @@ test('15 m detection and class-specific yielding, with a 20 m/s speed cap', () =
   v = sim.velocities(0.05);
   assert(v[0].vy !== 0 && v[1].vy !== 0);
   for (const velocity of v) assert(Math.hypot(velocity.vx, velocity.vy) <= 20 + 1e-10);
-  s.x = 216;
+  s.x = 226;
   assert.deepEqual(sim.velocities(0.05), [{ vx: 20, vy: 0 }, { vx: -20, vy: 0 }]);
+});
+test('class outflows sum to total outflow and track sampled label timing', () => {
+  const sim = new AirSimulation(seeded());
+  sim.advance(720, 3, 0.4);
+  assert(Math.abs(sim.classOutflow.gp + sim.classOutflow.gs - sim.outflow) < 1e-12);
+  assert.equal(sim.completedByClass.priority + sim.completedByClass.standard, sim.completed);
+  assert(sim.classOutflow.gp > 0 && sim.classOutflow.gs > 0);
+  assert.equal(sim.classFlowLabels.time, 720);
+  assert.equal(sim.classFlowHistory.length, sim.flowHistory.length);
+  for (let i = 0; i < sim.flowHistory.length; i++) assert(Math.abs(sim.classFlowHistory[i].gp + sim.classFlowHistory[i].gs - sim.flowHistory[i].g) < 1e-12);
+  sim.reset();
+  sim.advance(120, 1, 0);
+  assert.equal(sim.classOutflow.gp, 0);
+  assert.equal(sim.classOutflow.gs, sim.outflow);
 });
 test('head-on encounters detour and complete without symmetric deadlock', () => {
   for (const kinds of [['standard', 'standard'], ['priority', 'priority'], ['priority', 'standard']]) {

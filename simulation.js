@@ -1,7 +1,7 @@
 class AirSimulation {
   constructor(random = Math.random) {
     this.random = random;
-    this.control = Object.freeze({ detectionRadius: 15, maxSpeed: 20, step: 0.05, repulsion: 80, lateral: 0.6, arrivalRadius: 0.25 });
+    this.control = Object.freeze({ detectionRadius: 25, maxSpeed: 20, step: 0.05, repulsion: 80, lateral: 0.6, arrivalRadius: 0.25 });
     this.reset();
   }
 
@@ -17,6 +17,10 @@ class AirSimulation {
     this.completed = 0;
     this.outflowSecond = -1;
     this.outflow = 0;
+    this.completedByClass = { priority: 0, standard: 0 };
+    this.classOutflow = { gp: 0, gs: 0 };
+    this.classFlowHistory = [{ time: 0, gp: 0, gs: 0 }];
+    this.classFlowLabels = { time: 0, gp: 0, gs: 0 };
     this.activeTime = 0;
     this.activeTimeHistory = [{ time: 0, value: 0 }];
     this.meanAccumulation = 0;
@@ -59,9 +63,12 @@ class AirSimulation {
         this.completionSummary();
         if (end % 10 === 0) this.flowHistory.push({ time: end, g: this.outflow, n: this.meanAccumulation });
         if (end % 120 === 0) this.flowLabels = { time: end, g: this.outflow, n: this.meanAccumulation };
+        if (end % 10 === 0) this.classFlowHistory.push({ time: end, ...this.classOutflow });
+        if (end % 120 === 0) this.classFlowLabels = { time: end, ...this.classOutflow };
       }
     }
     while (this.flowHistory.length > 1 && this.flowHistory[1].time <= this.time - 600) this.flowHistory.shift();
+    while (this.classFlowHistory.length > 1 && this.classFlowHistory[1].time <= this.time - 600) this.classFlowHistory.shift();
   }
 
   advanceSegment(dt, totalRate, alpha) {
@@ -129,7 +136,9 @@ class AirSimulation {
               rx = Math.cos(angle) * sign; ry = Math.sin(angle) * sign;
             } else { rx /= separation; ry /= separation; }
             // Smooth finite-range potential gradient, no dense pair matrix.
-            const force = repulsion * (1 - separation / radius) ** 2;
+            // Taper distant repulsion on final approach; retain the close core.
+            const approachScale = separation > 5 ? Math.min(1, distance / 3) : 1;
+            const force = repulsion * (1 - separation / radius) ** 2 * approachScale;
             const approaching = dx * rx + dy * ry < 0;
             vx += force * (rx - (approaching ? lateral * ry : 0));
             vy += force * (ry + (approaching ? lateral * rx : 0));
@@ -156,7 +165,7 @@ class AirSimulation {
       const fraction = length2 > 0 ? Math.max(0, Math.min(1, (dx * sx + dy * sy) / length2)) : 0;
       if (Math.hypot(dx - fraction * sx, dy - fraction * sy) <= this.control.arrivalRadius) {
         this.activeTime += dt * fraction;
-        completions.push(this.time + dt * fraction);
+        completions.push({ time: this.time + dt * fraction, kind: drone.kind });
         continue;
       }
       this.activeTime += dt;
@@ -173,7 +182,10 @@ class AirSimulation {
       survivors.push(drone);
     }
     this.drones = survivors;
-    for (const time of completions.sort((a, b) => a - b)) this.completionHistory.push({ time, count: ++this.completed });
+    for (const { time, kind } of completions.sort((a, b) => a.time - b.time)) {
+      this.completedByClass[kind]++;
+      this.completionHistory.push({ time, count: ++this.completed, ...this.completedByClass });
+    }
   }
 
   completionSummary() {
@@ -186,11 +198,15 @@ class AirSimulation {
     if (second !== this.outflowSecond) {
       const boundary = second;
       let atBoundary = 0, beforeWindow = 0;
+      let priority = 0, standard = 0, priorPriority = 0, priorStandard = 0;
       for (const point of this.completionHistory) {
         if (point.time <= boundary) atBoundary = point.count;
         if (point.time <= boundary - 300) beforeWindow = point.count;
+        if (point.time <= boundary) { priority = point.priority || 0; standard = point.standard || 0; }
+        if (point.time <= boundary - 300) { priorPriority = point.priority || 0; priorStandard = point.standard || 0; }
       }
       this.outflow = (atBoundary - beforeWindow) / 300;
+      this.classOutflow = { gp: (priority - priorPriority) / 300, gs: (standard - priorStandard) / 300 };
       this.outflowSecond = second;
     }
     const padding = Math.max(1, Math.ceil((this.completed - firstCount) * 0.05));

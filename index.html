@@ -25,7 +25,11 @@
     .chart-y-label::before { content: ''; width: 12px; border-top: 2px solid currentColor; margin-right: 4px; }
     .chart-right-label::before { content: ''; display: inline-block; width: 12px; border-top: 2px dashed currentColor; margin-right: 4px; vertical-align: middle; }
     .chart h2 { font-size: 14px; font-weight: 500; margin: 0 0 12px; }
-    #flow-chart { aspect-ratio: auto; height: 260px; border: 0; background: transparent; }
+    #flow-chart, #class-flow-chart { aspect-ratio: auto; height: 260px; border: 0; background: transparent; }
+    .class-flow-panel { margin-top: 12px; }
+    .class-flow-panel .chart-y-label { color: #2478d4; }
+    .class-flow-panel .chart-right-label { color: #d93644; }
+    .class-flow-panel .chart-right-label::before { border-top-style: solid; }
     .time-controls { display: flex; align-items: center; gap: 8px; margin-left: auto; }
     #speed { width: 90px; }
     #speed-value { min-width: 32px; }
@@ -102,20 +106,26 @@
           <span class="chart-x-label">Time [min]</span>
           <canvas id="flow-chart" aria-label="Five-minute mean outflow, solid left axis, and mean accumulation, dashed right axis, versus time in minutes"></canvas>
         </div>
+        <div class="chart-area flow-panel class-flow-panel">
+          <span class="chart-y-label"><math><msub><mi>G</mi><mtext mathvariant="bold">st</mtext></msub><mo>=</mo></math><output id="gs-label">0.00</output> /s</span>
+          <span class="chart-right-label"><math><msub><mi>G</mi><mtext mathvariant="bold">pr</mtext></msub><mo>=</mo></math><output id="gp-label">0.00</output> /s</span>
+          <span class="chart-x-label">Time [min]</span>
+          <canvas id="class-flow-chart" aria-label="Five-minute standard outflow in blue and prioritized outflow in red versus time in minutes"></canvas>
+        </div>
       </section>
     </div>
     <section class="controls" aria-label="Simulation controls">
       <div class="control">
-        <label for="q-range">Total inflow rate <math><msub><mi>q</mi><mtext>total</mtext></msub></math> <span class="unit">[a.c/s]</span></label>
+        <label for="q-range">Total inflow rate <math><msub><mi>q</mi><mtext mathvariant="bold">tot</mtext></msub></math> <span class="unit">[a.c/s]</span></label>
         <div class="control-row">
-          <input id="q-range" type="range" min="0" max="1" step="0.01" value="0.5">
-          <input id="q-value" type="number" min="0" max="1" step="0.01" value="0.50" aria-label="Total inflow rate in aircraft per second">
+          <input id="q-range" type="range" min="0" max="3" step="0.01" value="0.5">
+          <input id="q-value" type="number" min="0" max="3" step="0.01" value="0.50" aria-label="Total inflow rate in aircraft per second">
         </div>
-        <div class="limits" aria-hidden="true"><span>0</span><span>1</span></div>
+        <div class="limits" aria-hidden="true"><span>0</span><span>3</span></div>
       </div>
       <div class="control">
-        <div class="alpha-heading"><label for="alpha-range">Inflow priority ratio <math><mi>α</mi></math></label>
-        <div class="equation"><math aria-label="q priority equals alpha times q total"><msub><mi>q</mi><mtext>priority</mtext></msub><mo>=</mo><mi>α</mi><mo>·</mo><msub><mi>q</mi><mtext>total</mtext></msub></math></div>
+        <div class="alpha-heading"><label for="alpha-range">Inflow priority ratio <math><msub><mi>α</mi><mi>f</mi></msub></math></label>
+        <div class="equation"><math aria-label="q pr equals alpha f times q tot"><msub><mi>q</mi><mtext mathvariant="bold">pr</mtext></msub><mo>=</mo><msub><mi>α</mi><mi>f</mi></msub><mo>·</mo><msub><mi>q</mi><mtext mathvariant="bold">tot</mtext></msub></math></div>
         </div>
         <div class="control-row">
           <input id="alpha-range" type="range" min="0" max="1" step="0.01" value="0">
@@ -132,7 +142,7 @@
       </div>
     </section>
   </main>
-  <script src="simulation.js?v=potential-field-1"></script>
+  <script src="simulation.js?v=potential-field-2"></script>
   <script>
     const defaults = Object.freeze({ q: 0.5, alpha: 0 });
     const visibility = { destinations: true, trajectories: true };
@@ -163,7 +173,7 @@
       const commit = () => {
         synchronize();
         if (Number.isFinite(number.valueAsNumber)) {
-          state[key] = Math.round(Math.min(1, Math.max(0, number.valueAsNumber)) * 100) / 100;
+          state[key] = Math.round(Math.min(Number(number.max), Math.max(0, number.valueAsNumber)) * 100) / 100;
         }
         render();
       };
@@ -326,7 +336,7 @@
           ctx.setLineDash([4, 4]);
           ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(dx, dy); ctx.stroke();
           ctx.setLineDash([]);
-          ctx.globalAlpha = 0.9;
+          ctx.globalAlpha = 0.5;
           ctx.beginPath();
           for (let i = 0; i < 10; i++) {
             const angle = -Math.PI / 2 + i * Math.PI / 5;
@@ -356,6 +366,7 @@
     }
     new ResizeObserver(drawAirspace).observe(canvas);
     const flowChart = document.querySelector('#flow-chart');
+    const classFlowChart = document.querySelector('#class-flow-chart');
     function drawFlow() {
       const gLabel = document.querySelector('#g-label');
       const nLabel = document.querySelector('#n-label');
@@ -363,34 +374,44 @@
       const nText = simulation.flowLabels.n.toFixed(1);
       if (gLabel.textContent !== gText) gLabel.textContent = gText;
       if (nLabel.textContent !== nText) nLabel.textContent = nText;
-      const width = flowChart.clientWidth, height = flowChart.clientHeight;
-      const scale = window.devicePixelRatio || 1;
-      if (flowChart.width !== Math.round(width * scale) || flowChart.height !== Math.round(height * scale)) {
-        flowChart.width = Math.round(width * scale); flowChart.height = Math.round(height * scale);
+      for (const key of ['gs', 'gp']) {
+        const label = document.querySelector(`#${key}-label`);
+        const text = simulation.classFlowLabels[key].toFixed(2);
+        if (label.textContent !== text) label.textContent = text;
       }
-      const ctx = flowChart.getContext('2d');
+      drawTimePlot(flowChart, simulation.flowHistory, false);
+      drawTimePlot(classFlowChart, simulation.classFlowHistory, true);
+    }
+    function drawTimePlot(target, points, classes) {
+      const width = target.clientWidth, height = target.clientHeight;
+      const scale = window.devicePixelRatio || 1;
+      if (target.width !== Math.round(width * scale) || target.height !== Math.round(height * scale)) {
+        target.width = Math.round(width * scale); target.height = Math.round(height * scale);
+      }
+      const ctx = target.getContext('2d');
       ctx.setTransform(scale, 0, 0, scale, 0, 0);
       ctx.clearRect(0, 0, width, height);
       const { start, end } = simulation.completionSummary();
       const left = 48, right = width - 48, top = 12, bottom = height - 44;
-      const points = simulation.flowHistory;
-      const gmax = Math.max(0.1, ...points.map(p => p.g)) * 1.1;
-      const nmax = Math.max(4, Math.ceil(Math.max(...points.map(p => p.n)) * 1.1 / 4) * 4);
+      const gmax = Math.max(0.1, ...points.map(p => classes ? Math.max(p.gs, p.gp) : p.g)) * 1.1;
+      const nmax = classes ? gmax : Math.max(4, Math.ceil(Math.max(...points.map(p => p.n)) * 1.1 / 4) * 4);
+      const leftColor = classes ? '#2478d4' : '#007f76';
+      const rightColor = classes ? '#d93644' : '#a2532c';
       const x = t => left + (t - start) / (end - start) * (right - left);
       const y = (v, max) => bottom - v / max * (bottom - top);
       ctx.font = '11px system-ui'; ctx.lineWidth = 1;
       for (let i = 0; i <= 4; i++) {
         const py = y(i / 4, 1);
         ctx.strokeStyle = '#dbe2e1'; ctx.beginPath(); ctx.moveTo(left, py); ctx.lineTo(right, py); ctx.stroke();
-        ctx.fillStyle = '#007f76'; ctx.textAlign = 'right'; ctx.fillText((gmax * i / 4).toFixed(2), left - 6, py + 4);
-        ctx.fillStyle = '#a2532c'; ctx.textAlign = 'left'; ctx.fillText(String(nmax * i / 4), right + 6, py + 4);
+        ctx.fillStyle = leftColor; ctx.textAlign = 'right'; ctx.fillText((gmax * i / 4).toFixed(2), left - 6, py + 4);
+        ctx.fillStyle = rightColor; ctx.textAlign = 'left'; ctx.fillText(classes ? (nmax * i / 4).toFixed(2) : String(nmax * i / 4), right + 6, py + 4);
       }
       ctx.fillStyle = '#596767'; ctx.textAlign = 'center';
       for (let t = Math.ceil(start / 120) * 120; t <= end; t += 120) ctx.fillText(String(t / 60), x(t), bottom + 18);
       ctx.strokeStyle = '#788d8b'; ctx.beginPath();
       ctx.moveTo(left, top); ctx.lineTo(left, bottom); ctx.lineTo(right, bottom); ctx.lineTo(right, top); ctx.stroke();
       ctx.save(); ctx.beginPath(); ctx.rect(left, top, right - left, bottom - top); ctx.clip();
-      for (const [key, max, color, dash] of [['g', gmax, '#007f76', []], ['n', nmax, '#a2532c', [5, 4]]]) {
+      for (const [key, max, color, dash] of [[classes ? 'gs' : 'g', gmax, leftColor, []], [classes ? 'gp' : 'n', nmax, rightColor, classes ? [] : [5, 4]]]) {
         ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash(dash); ctx.beginPath();
         points.forEach((point, i) => { if (i === 0) ctx.moveTo(x(point.time), y(point[key], max)); else ctx.lineTo(x(point.time), y(point[key], max)); });
         ctx.stroke();
@@ -398,6 +419,7 @@
       ctx.restore();
     }
     new ResizeObserver(drawFlow).observe(flowChart);
+    new ResizeObserver(drawFlow).observe(classFlowChart);
     drawFlow();
     drawAirspace();
     renderEntries();
