@@ -47,7 +47,10 @@
     .legend span { display: inline-flex; align-items: center; gap: 6px; }
     .legend i { width: 8px; height: 8px; border-radius: 50%; background: #d93644; }
     .legend .standard { background: #2478d4; }
-    .equation { margin: 4px 0 10px; color: #596767; }
+    .equation { margin: 0; color: #596767; }
+    .alpha-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; white-space: nowrap; }
+    .control .alpha-heading label { margin: 0; }
+    @media (max-width: 400px) { .alpha-heading { font-size: 12px; } .alpha-heading math { font-size: 13px; } }
     math { font-size: 16px; }
     canvas { display: block; width: 100%; aspect-ratio: 1; background: #fff; border: 1px solid #788d8b; }
     .x-axis { position: absolute; bottom: 4px; left: 28px; right: 0; text-align: center; font-size: 12px; }
@@ -61,12 +64,13 @@
     #alpha-range { accent-color: #ba5c39; }
     input[type="number"] { width: 100%; height: 36px; padding: 6px 8px; background: white; border: 1px solid #b8c4c3; border-radius: 4px; font: inherit; font-variant-numeric: tabular-nums; }
     .limits { display: flex; justify-content: space-between; margin-right: 106px; font-size: 11px; color: #718080; }
-    .actions { display: flex; flex-wrap: wrap; gap: 12px; border-top: 1px solid #dbe2e1; padding-top: 18px; }
+    .actions { display: flex; gap: 8px; border-top: 1px solid #dbe2e1; padding-top: 18px; }
     .visibility { display: flex; gap: 8px; margin-left: auto; }
-    .visibility button { min-width: 0; padding: 0 10px; font-size: 12px; }
+    .visibility button { width: auto; padding: 0 10px; font-size: 12px; gap: 6px; }
     .visibility button[aria-pressed="true"] { background: #e8f2f0; border-color: #8aada7; }
-    @media (max-width: 580px) { .visibility { flex-basis: 100%; justify-content: flex-end; } }
-    button { min-width: 112px; height: 40px; padding: 0 18px; font: inherit; font-weight: 550; border: 1px solid #b8c4c3; border-radius: 4px; background: white; color: #243334; cursor: pointer; }
+    button { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 40px; height: 40px; padding: 0; font: inherit; font-weight: 550; border: 1px solid #b8c4c3; border-radius: 4px; background: white; color: #243334; cursor: pointer; }
+    button img { width: 18px; height: 18px; }
+    #toggle img { filter: invert(1); }
     #toggle { background: #007f76; border-color: #007f76; color: white; }
     button:hover { filter: brightness(.95); }
     :focus-visible { outline: 3px solid #65acda; outline-offset: 3px; }
@@ -80,7 +84,7 @@
       <span id="status" class="status" data-running="false" role="status">Ready</span>
     </header>
     <div class="meta"><span>2D airspace · 500 m × 500 m</span>
-      <div class="time-controls"><label for="speed">Speed</label><input id="speed" type="range" min="1" max="100" step="1" value="1"><output id="speed-value">1×</output><output id="clock" aria-label="Simulation time">t = 0.0 s</output></div>
+      <div class="time-controls"><label for="speed">Speed</label><input id="speed" type="range" min="1" max="100" step="1" value="1"><output id="speed-value">1×</output><output id="clock" aria-label="Simulation time">t = 00:00</output></div>
     </div>
     <div class="legend" aria-label="Drone classes">
       <span><i></i>Prioritized · <output id="next-priority"></output></span>
@@ -94,7 +98,7 @@
       <section class="chart" aria-label="Five-minute average outflow and accumulation">
         <div class="chart-area flow-panel">
           <span class="chart-y-label"><math><mi>G</mi><mo>=</mo></math><output id="g-label">0.00</output> /s</span>
-          <span class="chart-right-label"><math><mi>n</mi><mo>=</mo></math><output id="n-label">0.00</output></span>
+          <span class="chart-right-label"><math><mi>n</mi><mo>=</mo></math><output id="n-label">0.0</output></span>
           <span class="chart-x-label">Time [min]</span>
           <canvas id="flow-chart" aria-label="Five-minute mean outflow, solid left axis, and mean accumulation, dashed right axis, versus time in minutes"></canvas>
         </div>
@@ -110,8 +114,9 @@
         <div class="limits" aria-hidden="true"><span>0</span><span>1</span></div>
       </div>
       <div class="control">
-        <label for="alpha-range">Inflow priority ratio <math><mi>α</mi></math></label>
+        <div class="alpha-heading"><label for="alpha-range">Inflow priority ratio <math><mi>α</mi></math></label>
         <div class="equation"><math aria-label="q priority equals alpha times q total"><msub><mi>q</mi><mtext>priority</mtext></msub><mo>=</mo><mi>α</mi><mo>·</mo><msub><mi>q</mi><mtext>total</mtext></msub></math></div>
+        </div>
         <div class="control-row">
           <input id="alpha-range" type="range" min="0" max="1" step="0.01" value="0">
           <input id="alpha-value" type="number" min="0" max="1" step="0.01" value="0.00" aria-label="Inflow priority ratio alpha">
@@ -119,10 +124,10 @@
         <div class="limits" aria-hidden="true"><span>0</span><span>1</span></div>
       </div>
       <div class="actions">
-        <button id="toggle" type="button">Start</button><button id="reset" type="button">Reset</button>
+        <button id="toggle" type="button" aria-label="Start" title="Start"><img src="assets/icons/play.svg" alt=""></button><button id="reset" type="button" aria-label="Reset" title="Reset"><img src="assets/icons/rotate-ccw.svg" alt=""></button>
         <div class="visibility">
-          <button id="destinations" type="button" aria-pressed="true">Hide Destinations</button>
-          <button id="trajectories" type="button" aria-pressed="true">Hide Trajectories</button>
+          <button id="destinations" type="button" aria-pressed="true" aria-label="Hide Destinations" title="Hide Destinations">Dest <img src="assets/icons/eye.svg" alt=""></button>
+          <button id="trajectories" type="button" aria-pressed="true" aria-label="Hide Trajectories" title="Hide Trajectories">Traj <img src="assets/icons/eye.svg" alt=""></button>
         </div>
       </div>
     </section>
@@ -179,13 +184,14 @@
       const rates = { priority: state.q * state.alpha, standard: state.q * (1 - state.alpha) };
       for (const kind of ['priority', 'standard']) {
         const time = rates[kind] > 0
-          ? `${(simulation.time + simulation.remaining[kind] / rates[kind]).toFixed(1)} sec`
+          ? `${((simulation.time + simulation.remaining[kind] / rates[kind]) / 60).toFixed(1)} min`
           : '—';
         document.querySelector(`#next-${kind}`).textContent = `Next entry at ${time}`;
       }
     }
     function renderClock() {
-      clock.textContent = `t = ${state.elapsed.toFixed(1)} s`;
+      const seconds = Math.floor(state.elapsed);
+      clock.textContent = `t = ${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
       renderEntries();
     }
     function synchronize(now = performance.now()) {
@@ -214,7 +220,10 @@
     function renderStatus(label) {
       status.textContent = label;
       status.dataset.running = String(state.running);
-      toggle.textContent = state.running ? 'Pause' : 'Start';
+      const action = state.running ? 'Pause' : 'Start';
+      toggle.setAttribute('aria-label', action);
+      toggle.title = action;
+      toggle.querySelector('img').src = `assets/icons/${state.running ? 'pause' : 'play'}.svg`;
     }
     toggle.addEventListener('click', () => {
       if (state.running) { pause(); renderStatus('Paused'); }
@@ -244,7 +253,10 @@
       button.addEventListener('click', () => {
         visibility[key] = !visibility[key];
         button.setAttribute('aria-pressed', String(visibility[key]));
-        button.textContent = `${visibility[key] ? 'Hide' : 'Show'} ${key[0].toUpperCase() + key.slice(1)}`;
+        const action = `${visibility[key] ? 'Hide' : 'Show'} ${key[0].toUpperCase() + key.slice(1)}`;
+        button.setAttribute('aria-label', action);
+        button.title = action;
+        button.querySelector('img').src = `assets/icons/${visibility[key] ? 'eye' : 'eye-closed'}.svg`;
         drawAirspace();
       });
     }
@@ -325,7 +337,7 @@
       const gLabel = document.querySelector('#g-label');
       const nLabel = document.querySelector('#n-label');
       const gText = simulation.flowLabels.g.toFixed(2);
-      const nText = simulation.flowLabels.n.toFixed(2);
+      const nText = simulation.flowLabels.n.toFixed(1);
       if (gLabel.textContent !== gText) gLabel.textContent = gText;
       if (nLabel.textContent !== nText) nLabel.textContent = nText;
       const width = flowChart.clientWidth, height = flowChart.clientHeight;
