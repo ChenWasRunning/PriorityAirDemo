@@ -1,20 +1,21 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { AirSimulation } = require('./simulation');
-test('25 m detection and class-specific yielding, with a 20 m/s speed cap', () => {
+test('configured detection radius, class-specific yielding, and speed cap', () => {
   const sim = new AirSimulation(seeded());
+  const speed = sim.control.maxSpeed;
   const p = sim.makeTrip('priority', 0, { x: 200, y: 250 }, { x: 400, y: 250 });
   const s = sim.makeTrip('standard', 0, { x: 210, y: 250 }, { x: 0, y: 250 });
   sim.drones = [p, s];
   let v = sim.velocities(0.05);
-  assert.deepEqual(v[0], { vx: 20, vy: 0 });
+  assert.deepEqual(v[0], { vx: speed, vy: 0 });
   assert(v[1].vy !== 0);
   s.kind = 'priority';
   v = sim.velocities(0.05);
   assert(v[0].vy !== 0 && v[1].vy !== 0);
-  for (const velocity of v) assert(Math.hypot(velocity.vx, velocity.vy) <= 20 + 1e-10);
-  s.x = 226;
-  assert.deepEqual(sim.velocities(0.05), [{ vx: 20, vy: 0 }, { vx: -20, vy: 0 }]);
+  for (const velocity of v) assert(Math.hypot(velocity.vx, velocity.vy) <= speed + 1e-10);
+  s.x = p.x + sim.control.detectionRadius + 1;
+  assert.deepEqual(sim.velocities(0.05), [{ vx: speed, vy: 0 }, { vx: -speed, vy: 0 }]);
 });
 test('class outflows sum to total outflow and track sampled label timing', () => {
   const sim = new AirSimulation(seeded());
@@ -54,13 +55,13 @@ test('coincident starts stay finite and local searches skip distant drones', () 
   for (const p of sim.drones) assert(Number.isFinite(p.x + p.y + p.vx + p.vy));
   assert(Math.hypot(sim.drones[0].x - sim.drones[1].x, sim.drones[0].y - sim.drones[1].y) > 0);
   sim.reset();
-  for (let x = 30; x < 500; x += 60) for (let y = 30; y < 500; y += 60) sim.drones.push(sim.makeTrip('standard', 0, { x, y }, { x: 500 - x, y: 500 - y }));
+  for (let x = 30; x < 500; x += 3 * sim.control.detectionRadius) for (let y = 30; y < 500; y += 3 * sim.control.detectionRadius) sim.drones.push(sim.makeTrip('standard', 0, { x, y }, { x: 500 - x, y: 500 - y }));
   sim.velocities(0.05);
   assert.equal(sim.neighborChecks, 0);
 });
 test('five-minute accumulation integrates exact fractional active times', () => {
   const sim = new AirSimulation(seeded());
-  sim.drones = [sim.makeTrip('standard', 0, { x: 0, y: 50 }, { x: 210, y: 50 }), sim.makeTrip('standard', 0, { x: 0, y: 450 }, { x: 405, y: 450 })];
+  sim.drones = [sim.makeTrip('standard', 0, { x: 0, y: 50 }, { x: 10.5 * sim.control.maxSpeed, y: 50 }), sim.makeTrip('standard', 0, { x: 0, y: 450 }, { x: 20.25 * sim.control.maxSpeed, y: 450 })];
   sim.advance(30, 0, 0);
   assert(Math.abs(sim.meanAccumulation - 30.75 / 300) < 1e-9);
   sim.advance(280, 0, 0);
@@ -231,9 +232,9 @@ test('OD geometry, exact speed, landing and reset', () => {
     sim.drones = [trip];
     sim.advance(1, 0, 0);
     const p = sim.position(trip);
-    assert(Math.abs(Math.hypot(p.x - trip.origin.x, p.y - trip.origin.y) - 20) < 1e-10);
+    assert(Math.abs(Math.hypot(p.x - trip.origin.x, p.y - trip.origin.y) - sim.control.maxSpeed) < 1e-10);
     const previous = sim.completed;
-    sim.advance(trip.distance / 20 + 1, 0, 0);
+    sim.advance(trip.distance / sim.control.maxSpeed + 1, 0, 0);
     assert.equal(sim.completed, previous + 1);
   }
   sim.reset();
