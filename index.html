@@ -14,16 +14,18 @@
     .chart { min-width: 0; }
     .chart-area { position: relative; }
     .chart-x-label, .chart-axis-label { position: absolute; font-size: 11px; color: #596767; background: #f5f7f7; padding: 2px 4px; pointer-events: none; }
-    .chart-x-label { right: 50px; bottom: 50px; }
+    .chart-x-label { left: 20px; bottom: 50px; }
     .chart-axis-label { right: 50px; top: 18px; }
-    .plot-legend { position: absolute; left: 20px; top: 18px; display: grid; gap: 3px; font-size: 10px; background: #f5f7f7; padding: 2px 4px; }
-    .plot-legend span { display: flex; align-items: center; gap: 3px; white-space: nowrap; }
-    .plot-legend span::before { content: ''; width: 12px; border-top: 2px solid currentColor; margin-right: 3px; }
+    .plot-legend { position: absolute; left: 20px; top: 38px; display: grid; gap: 3px; font-size: 10px; background: #f5f7f7; padding: 2px 4px; }
+    .plot-legend > span { display: grid; grid-template-columns: 12px 28px 8px 6ch auto; align-items: center; gap: 3px; white-space: nowrap; }
+    .plot-legend > span::before { content: ''; width: 12px; border-top: 2px solid currentColor; }
+    .plot-legend output { text-align: right; }
+    .plot-legend .equals { text-align: center; }
     .plot-legend math, .chart-axis-label math { font-size: 12px; }
     .series-total { color: #007f76; }
     .series-standard { color: #2478d4; }
     .series-priority { color: #d93644; }
-    #flow-chart, #accumulation-chart { aspect-ratio: auto; height: 260px; border: 0; background: transparent; }
+    #flow-chart, #accumulation-chart { aspect-ratio: auto; height: 280px; border: 0; background: transparent; }
     .accumulation-panel { margin-top: 12px; }
     .time-controls { display: flex; align-items: center; gap: 8px; margin-left: auto; }
     #speed { width: 90px; }
@@ -97,21 +99,21 @@
       <section class="chart" aria-label="Five-minute average outflow and accumulation">
         <div class="chart-area">
           <div class="plot-legend" aria-label="Outflow legend">
-            <span class="series-total"><math><msub><mi>G</mi><mtext mathvariant="bold">tot</mtext></msub><mo>=</mo></math><output id="g-label">0.00</output> /s</span>
-            <span class="series-standard"><math><msub><mi>G</mi><mtext mathvariant="bold">st</mtext></msub><mo>=</mo></math><output id="gs-label">0.00</output> /s</span>
-            <span class="series-priority"><math><msub><mi>G</mi><mtext mathvariant="bold">pr</mtext></msub><mo>=</mo></math><output id="gp-label">0.00</output> /s</span>
+            <span class="series-total"><math><msub><mi>G</mi><mtext mathvariant="bold">tot</mtext></msub></math><span class="equals">=</span><output id="g-label">0.00</output><span>/s</span></span>
+            <span class="series-standard"><math><msub><mi>G</mi><mtext mathvariant="bold">st</mtext></msub></math><span class="equals">=</span><output id="gs-label">0.00</output><span>/s</span></span>
+            <span class="series-priority"><math><msub><mi>G</mi><mtext mathvariant="bold">pr</mtext></msub></math><span class="equals">=</span><output id="gp-label">0.00</output><span>/s</span></span>
           </div>
-          <span class="chart-axis-label"><math><mi>G</mi></math> [/s]</span>
+          <span class="chart-axis-label">Outflow <math><mi>G</mi></math></span>
           <span class="chart-x-label">Time [min]</span>
           <canvas id="flow-chart" aria-label="Five-minute average total, standard, and prioritized outflow versus time, right y-axis"></canvas>
         </div>
         <div class="chart-area accumulation-panel">
           <div class="plot-legend" aria-label="Accumulation legend">
-            <span class="series-total"><math><msub><mi>n</mi><mtext mathvariant="bold">tot</mtext></msub><mo>=</mo></math><output id="n-label">0.0</output></span>
-            <span class="series-standard"><math><msub><mi>n</mi><mtext mathvariant="bold">st</mtext></msub><mo>=</mo></math><output id="ns-label">0.0</output></span>
-            <span class="series-priority"><math><msub><mi>n</mi><mtext mathvariant="bold">pr</mtext></msub><mo>=</mo></math><output id="np-label">0.0</output></span>
+            <span class="series-total"><math><msub><mi>n</mi><mtext mathvariant="bold">tot</mtext></msub></math><span class="equals">=</span><output id="n-label">0.0</output></span>
+            <span class="series-standard"><math><msub><mi>n</mi><mtext mathvariant="bold">st</mtext></msub></math><span class="equals">=</span><output id="ns-label">0.0</output></span>
+            <span class="series-priority"><math><msub><mi>n</mi><mtext mathvariant="bold">pr</mtext></msub></math><span class="equals">=</span><output id="np-label">0.0</output></span>
           </div>
-          <span class="chart-axis-label"><math><mi>n</mi></math></span>
+          <span class="chart-axis-label">Accumulation <math><mi>n</mi></math></span>
           <span class="chart-x-label">Time [min]</span>
           <canvas id="accumulation-chart" aria-label="Five-minute average total, standard, and prioritized accumulation versus time, right y-axis"></canvas>
         </div>
@@ -121,8 +123,8 @@
       <div class="control">
         <label for="q-range">Total inflow rate (default: 3.6) <math><msub><mi>q</mi><mtext mathvariant="bold">tot</mtext></msub></math> <span class="unit">[a.c/s]</span></label>
         <div class="control-row">
-          <input id="q-range" type="range" min="0" max="5" step="0.01" value="0.5">
-          <input id="q-value" type="number" min="0" max="10" step="0.01" value="0.50" aria-label="Total inflow rate in aircraft per second">
+          <input id="q-range" type="range" min="0" max="5" step="0.1" value="3.6">
+          <input id="q-value" type="number" min="0" max="10" step="0.01" value="3.60" aria-label="Total inflow rate in aircraft per second">
         </div>
         <div class="limits" aria-hidden="true"><span>0</span><span>5</span></div>
       </div>
@@ -131,8 +133,8 @@
         <div class="equation"><math aria-label="q pr equals alpha f times q tot"><msub><mi>q</mi><mtext mathvariant="bold">pr</mtext></msub><mo>=</mo><msub><mi>α</mi><mi>f</mi></msub><mo>·</mo><msub><mi>q</mi><mtext mathvariant="bold">tot</mtext></msub></math></div>
         </div>
         <div class="control-row">
-          <input id="alpha-range" type="range" min="0" max="1" step="0.01" value="0">
-          <input id="alpha-value" type="number" min="0" max="1" step="0.01" value="0.00" aria-label="Inflow priority ratio alpha">
+          <input id="alpha-range" type="range" min="0" max="1" step="0.01" value="0.3">
+          <input id="alpha-value" type="number" min="0" max="1" step="0.01" value="0.30" aria-label="Inflow priority ratio alpha">
         </div>
         <div class="limits" aria-hidden="true"><span>0</span><span>1</span></div>
       </div>
@@ -147,7 +149,7 @@
   </main>
   <script src="simulation.js?v=uniform-arrivals-1"></script>
   <script>
-    const defaults = Object.freeze({ q: 0.5, alpha: 0 });
+    const defaults = Object.freeze({ q: 3.6, alpha: 0.3 });
     const visibility = { destinations: true, trajectories: true };
     const simulation = new AirSimulation();
     const state = { ...defaults, speed: 1, running: false, elapsed: 0 };
