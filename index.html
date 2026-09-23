@@ -144,6 +144,8 @@
     const bindings = {};
     let frameId = null;
     let lastTime = null;
+    const autoPauseInterval = 360 * 60;
+    let nextAutoPause = autoPauseInterval;
     document.querySelector('#speed').addEventListener('input', event => {
       synchronize();
       state.speed = event.target.valueAsNumber;
@@ -196,27 +198,45 @@
     }
     function synchronize(now = performance.now()) {
       if (state.running && lastTime !== null) {
-        simulation.advance(Math.max(0, now - lastTime) / 1000 * state.speed, state.q, state.alpha);
+        const remaining = Math.max(0, nextAutoPause - simulation.time);
+        const elapsed = Math.max(0, now - lastTime) / 1000 * state.speed;
+        simulation.advance(Math.min(elapsed, remaining), state.q, state.alpha);
         state.elapsed = simulation.time;
         lastTime = now;
         renderClock();
         drawAirspace();
         drawFlow();
+        if (simulation.time >= nextAutoPause) {
+          pause(false);
+          renderStatus('Auto-paused');
+        }
       }
     }
     function tick(now) {
       if (!state.running) return;
+      if (document.hidden) { pauseWhenAway(); return; }
       synchronize(now);
-      frameId = requestAnimationFrame(tick);
+      if (state.running) frameId = requestAnimationFrame(tick);
     }
-    function pause() {
-      synchronize();
+    function pause(updateTime = true) {
+      if (updateTime) synchronize();
       state.running = false;
       cancelAnimationFrame(frameId);
       frameId = null;
       lastTime = null;
       renderClock();
     }
+    function pauseWhenAway() {
+      if (!state.running) return;
+      // Discard time since the last frame rather than catching up in background.
+      pause(false);
+      renderStatus('Auto-paused');
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) pauseWhenAway();
+    });
+    window.addEventListener('blur', pauseWhenAway);
+    window.addEventListener('pagehide', pauseWhenAway);
     function renderStatus(label) {
       status.textContent = label;
       status.dataset.running = String(state.running);
@@ -228,6 +248,8 @@
     toggle.addEventListener('click', () => {
       if (state.running) { pause(); renderStatus('Paused'); }
       else {
+        if (document.hidden) return;
+        nextAutoPause = (Math.floor(simulation.time / autoPauseInterval) + 1) * autoPauseInterval;
         state.running = true;
         lastTime = performance.now();
         frameId = requestAnimationFrame(tick);
