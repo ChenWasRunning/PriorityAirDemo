@@ -119,7 +119,7 @@
     </div>
     <section class="controls" aria-label="Simulation controls">
       <div class="control">
-        <label for="q-range">Total inflow rate <math><msub><mi>q</mi><mtext mathvariant="bold">tot</mtext></msub></math> <span class="unit">[a.c/s]</span></label>
+        <label for="q-range">Total inflow rate (default: 3.6) <math><msub><mi>q</mi><mtext mathvariant="bold">tot</mtext></msub></math> <span class="unit">[a.c/s]</span></label>
         <div class="control-row">
           <input id="q-range" type="range" min="0" max="5" step="0.01" value="0.5">
           <input id="q-value" type="number" min="0" max="10" step="0.01" value="0.50" aria-label="Total inflow rate in aircraft per second">
@@ -127,7 +127,7 @@
         <div class="limits" aria-hidden="true"><span>0</span><span>5</span></div>
       </div>
       <div class="control">
-        <div class="alpha-heading"><label for="alpha-range">Inflow priority ratio <math><msub><mi>α</mi><mi>f</mi></msub></math></label>
+        <div class="alpha-heading"><label for="alpha-range">Inflow priority ratio (default: 0.3) <math><msub><mi>α</mi><mi>f</mi></msub></math></label>
         <div class="equation"><math aria-label="q pr equals alpha f times q tot"><msub><mi>q</mi><mtext mathvariant="bold">pr</mtext></msub><mo>=</mo><msub><mi>α</mi><mi>f</mi></msub><mo>·</mo><msub><mi>q</mi><mtext mathvariant="bold">tot</mtext></msub></math></div>
         </div>
         <div class="control-row">
