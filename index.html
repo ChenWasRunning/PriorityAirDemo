@@ -13,23 +13,18 @@
     .airspace-layout { display: grid; grid-template-columns: minmax(0, 612px) minmax(260px, 1fr); gap: 28px; align-items: start; }
     .chart { min-width: 0; }
     .chart-area { position: relative; }
-    .chart-y-label, .chart-x-label { position: absolute; display: flex; align-items: center; white-space: nowrap; font-size: 11px; color: #596767; background: #f5f7f7; padding: 2px 4px; pointer-events: none; }
-    .chart-y-label { left: 54px; top: 18px; }
-    .chart-x-label { right: 18px; bottom: 50px; }
-    .flow-panel { margin-top: 0; }
-    .flow-panel .chart-x-label { right: 54px; }
-    .flow-panel .chart-y-label { color: #007f76; }
-    .chart-right-label { position: absolute; right: 54px; top: 18px; padding: 2px 4px; background: #f5f7f7; color: #a2532c; white-space: nowrap; }
-    .flow-panel .chart-y-label, .flow-panel .chart-right-label { display: flex; align-items: center; font-size: 10px; gap: 2px; }
-    .flow-panel math { font-size: 12px; }
-    .chart-y-label::before { content: ''; width: 12px; border-top: 2px solid currentColor; margin-right: 4px; }
-    .chart-right-label::before { content: ''; display: inline-block; width: 12px; border-top: 2px dashed currentColor; margin-right: 4px; vertical-align: middle; }
-    .chart h2 { font-size: 14px; font-weight: 500; margin: 0 0 12px; }
-    #flow-chart, #class-flow-chart { aspect-ratio: auto; height: 260px; border: 0; background: transparent; }
-    .class-flow-panel { margin-top: 12px; }
-    .class-flow-panel .chart-y-label { color: #2478d4; }
-    .class-flow-panel .chart-right-label { color: #d93644; }
-    .class-flow-panel .chart-right-label::before { border-top-style: solid; }
+    .chart-x-label, .chart-axis-label { position: absolute; font-size: 11px; color: #596767; background: #f5f7f7; padding: 2px 4px; pointer-events: none; }
+    .chart-x-label { right: 50px; bottom: 50px; }
+    .chart-axis-label { right: 50px; top: 18px; }
+    .plot-legend { position: absolute; left: 20px; top: 18px; display: grid; gap: 3px; font-size: 10px; background: #f5f7f7; padding: 2px 4px; }
+    .plot-legend span { display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+    .plot-legend span::before { content: ''; width: 12px; border-top: 2px solid currentColor; margin-right: 3px; }
+    .plot-legend math, .chart-axis-label math { font-size: 12px; }
+    .series-total { color: #007f76; }
+    .series-standard { color: #2478d4; }
+    .series-priority { color: #d93644; }
+    #flow-chart, #accumulation-chart { aspect-ratio: auto; height: 260px; border: 0; background: transparent; }
+    .accumulation-panel { margin-top: 12px; }
     .time-controls { display: flex; align-items: center; gap: 8px; margin-left: auto; }
     #speed { width: 90px; }
     #speed-value { min-width: 32px; }
@@ -91,8 +86,8 @@
       <div class="time-controls"><label for="speed">Speed</label><input id="speed" type="range" min="1" max="100" step="1" value="1"><output id="speed-value">1×</output><output id="clock" aria-label="Simulation time">t = 00:00</output></div>
     </div>
     <div class="legend" aria-label="Drone classes">
-      <span><i></i>Prioritized · <output id="next-priority"></output></span>
-      <span><i class="standard"></i>Standard · <output id="next-standard"></output></span>
+      <span><i></i>Prioritized</span>
+      <span><i class="standard"></i>Standard</span>
     </div>
     <div class="airspace-layout">
       <div class="airspace">
@@ -100,17 +95,25 @@
       <span class="x-axis">x · 500 m</span><span class="y-axis">y · 500 m</span>
       </div>
       <section class="chart" aria-label="Five-minute average outflow and accumulation">
-        <div class="chart-area flow-panel">
-          <span class="chart-y-label"><math><mi>G</mi><mo>=</mo></math><output id="g-label">0.00</output> /s</span>
-          <span class="chart-right-label"><math><mi>n</mi><mo>=</mo></math><output id="n-label">0.0</output></span>
+        <div class="chart-area">
+          <div class="plot-legend" aria-label="Outflow legend">
+            <span class="series-total"><math><msub><mi>G</mi><mtext mathvariant="bold">tot</mtext></msub><mo>=</mo></math><output id="g-label">0.00</output> /s</span>
+            <span class="series-standard"><math><msub><mi>G</mi><mtext mathvariant="bold">st</mtext></msub><mo>=</mo></math><output id="gs-label">0.00</output> /s</span>
+            <span class="series-priority"><math><msub><mi>G</mi><mtext mathvariant="bold">pr</mtext></msub><mo>=</mo></math><output id="gp-label">0.00</output> /s</span>
+          </div>
+          <span class="chart-axis-label"><math><mi>G</mi></math> [/s]</span>
           <span class="chart-x-label">Time [min]</span>
-          <canvas id="flow-chart" aria-label="Five-minute mean outflow, solid left axis, and mean accumulation, dashed right axis, versus time in minutes"></canvas>
+          <canvas id="flow-chart" aria-label="Five-minute average total, standard, and prioritized outflow versus time, right y-axis"></canvas>
         </div>
-        <div class="chart-area flow-panel class-flow-panel">
-          <span class="chart-y-label"><math><msub><mi>G</mi><mtext mathvariant="bold">st</mtext></msub><mo>=</mo></math><output id="gs-label">0.00</output> /s</span>
-          <span class="chart-right-label"><math><msub><mi>G</mi><mtext mathvariant="bold">pr</mtext></msub><mo>=</mo></math><output id="gp-label">0.00</output> /s</span>
+        <div class="chart-area accumulation-panel">
+          <div class="plot-legend" aria-label="Accumulation legend">
+            <span class="series-total"><math><msub><mi>n</mi><mtext mathvariant="bold">tot</mtext></msub><mo>=</mo></math><output id="n-label">0.0</output></span>
+            <span class="series-standard"><math><msub><mi>n</mi><mtext mathvariant="bold">st</mtext></msub><mo>=</mo></math><output id="ns-label">0.0</output></span>
+            <span class="series-priority"><math><msub><mi>n</mi><mtext mathvariant="bold">pr</mtext></msub><mo>=</mo></math><output id="np-label">0.0</output></span>
+          </div>
+          <span class="chart-axis-label"><math><mi>n</mi></math></span>
           <span class="chart-x-label">Time [min]</span>
-          <canvas id="class-flow-chart" aria-label="Five-minute standard outflow in blue and prioritized outflow in red versus time in minutes"></canvas>
+          <canvas id="accumulation-chart" aria-label="Five-minute average total, standard, and prioritized accumulation versus time, right y-axis"></canvas>
         </div>
       </section>
     </div>
@@ -142,7 +145,7 @@
       </div>
     </section>
   </main>
-  <script src="simulation.js?v=potential-field-2"></script>
+  <script src="simulation.js?v=uniform-arrivals-1"></script>
   <script>
     const defaults = Object.freeze({ q: 0.5, alpha: 0 });
     const visibility = { destinations: true, trajectories: true };
@@ -168,7 +171,6 @@
       const render = () => {
         range.value = state[key];
         number.value = state[key].toFixed(2);
-        renderEntries();
       };
       const commit = () => {
         synchronize();
@@ -183,7 +185,6 @@
           synchronize();
           state[key] = number.valueAsNumber;
           range.value = state[key];
-          renderEntries();
         }
       });
       number.addEventListener('change', commit);
@@ -192,19 +193,9 @@
       bindings[key] = render;
     }
 
-    function renderEntries() {
-      const rates = { priority: state.q * state.alpha, standard: state.q * (1 - state.alpha) };
-      for (const kind of ['priority', 'standard']) {
-        const time = rates[kind] > 0
-          ? `${((simulation.time + simulation.remaining[kind] / rates[kind]) / 60).toFixed(1)} min`
-          : '—';
-        document.querySelector(`#next-${kind}`).textContent = `Next entry at ${time}`;
-      }
-    }
     function renderClock() {
       const seconds = Math.floor(state.elapsed);
       clock.textContent = `t = ${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
-      renderEntries();
     }
     function synchronize(now = performance.now()) {
       if (state.running && lastTime !== null) {
@@ -366,7 +357,7 @@
     }
     new ResizeObserver(drawAirspace).observe(canvas);
     const flowChart = document.querySelector('#flow-chart');
-    const classFlowChart = document.querySelector('#class-flow-chart');
+    const accumulationChart = document.querySelector('#accumulation-chart');
     function drawFlow() {
       const gLabel = document.querySelector('#g-label');
       const nLabel = document.querySelector('#n-label');
@@ -374,15 +365,16 @@
       const nText = simulation.flowLabels.n.toFixed(1);
       if (gLabel.textContent !== gText) gLabel.textContent = gText;
       if (nLabel.textContent !== nText) nLabel.textContent = nText;
-      for (const key of ['gs', 'gp']) {
+      for (const key of ['gs', 'gp', 'ns', 'np']) {
         const label = document.querySelector(`#${key}-label`);
-        const text = simulation.classFlowLabels[key].toFixed(2);
+        const text = simulation.classFlowLabels[key].toFixed(key.startsWith('g') ? 2 : 1);
         if (label.textContent !== text) label.textContent = text;
       }
-      drawTimePlot(flowChart, simulation.flowHistory, false);
-      drawTimePlot(classFlowChart, simulation.classFlowHistory, true);
+      const points = simulation.flowHistory.map((p, i) => ({ ...p, ...simulation.classFlowHistory[i] }));
+      drawTimePlot(flowChart, points, 'g');
+      drawTimePlot(accumulationChart, points, 'n');
     }
-    function drawTimePlot(target, points, classes) {
+    function drawTimePlot(target, points, quantity) {
       const width = target.clientWidth, height = target.clientHeight;
       const scale = window.devicePixelRatio || 1;
       if (target.width !== Math.round(width * scale) || target.height !== Math.round(height * scale)) {
@@ -392,37 +384,35 @@
       ctx.setTransform(scale, 0, 0, scale, 0, 0);
       ctx.clearRect(0, 0, width, height);
       const { start, end } = simulation.completionSummary();
-      const left = 48, right = width - 48, top = 12, bottom = height - 44;
-      const gmax = Math.max(0.1, ...points.map(p => classes ? Math.max(p.gs, p.gp) : p.g)) * 1.1;
-      const nmax = classes ? gmax : Math.max(4, Math.ceil(Math.max(...points.map(p => p.n)) * 1.1 / 4) * 4);
-      const leftColor = classes ? '#2478d4' : '#007f76';
-      const rightColor = classes ? '#d93644' : '#a2532c';
+      const left = 12, right = width - 48, top = 12, bottom = height - 44;
+      const keys = [quantity, `${quantity}s`, `${quantity}p`];
+      const colors = ['#007f76', '#2478d4', '#d93644'];
+      // Reserve enough vertical headroom for all three in-plot legend rows.
+      const maximum = Math.max(quantity === 'g' ? 0.1 : 1, ...points.flatMap(p => keys.map(key => p[key]))) * 1.6;
       const x = t => left + (t - start) / (end - start) * (right - left);
       const y = (v, max) => bottom - v / max * (bottom - top);
       ctx.font = '11px system-ui'; ctx.lineWidth = 1;
       for (let i = 0; i <= 4; i++) {
         const py = y(i / 4, 1);
         ctx.strokeStyle = '#dbe2e1'; ctx.beginPath(); ctx.moveTo(left, py); ctx.lineTo(right, py); ctx.stroke();
-        ctx.fillStyle = leftColor; ctx.textAlign = 'right'; ctx.fillText((gmax * i / 4).toFixed(2), left - 6, py + 4);
-        ctx.fillStyle = rightColor; ctx.textAlign = 'left'; ctx.fillText(classes ? (nmax * i / 4).toFixed(2) : String(nmax * i / 4), right + 6, py + 4);
+        ctx.fillStyle = '#596767'; ctx.textAlign = 'left'; ctx.fillText((maximum * i / 4).toFixed(quantity === 'g' ? 2 : 1), right + 6, py + 4);
       }
       ctx.fillStyle = '#596767'; ctx.textAlign = 'center';
       for (let t = Math.ceil(start / 120) * 120; t <= end; t += 120) ctx.fillText(String(t / 60), x(t), bottom + 18);
       ctx.strokeStyle = '#788d8b'; ctx.beginPath();
-      ctx.moveTo(left, top); ctx.lineTo(left, bottom); ctx.lineTo(right, bottom); ctx.lineTo(right, top); ctx.stroke();
+      ctx.moveTo(left, bottom); ctx.lineTo(right, bottom); ctx.lineTo(right, top); ctx.stroke();
       ctx.save(); ctx.beginPath(); ctx.rect(left, top, right - left, bottom - top); ctx.clip();
-      for (const [key, max, color, dash] of [[classes ? 'gs' : 'g', gmax, leftColor, []], [classes ? 'gp' : 'n', nmax, rightColor, classes ? [] : [5, 4]]]) {
-        ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash(dash); ctx.beginPath();
-        points.forEach((point, i) => { if (i === 0) ctx.moveTo(x(point.time), y(point[key], max)); else ctx.lineTo(x(point.time), y(point[key], max)); });
+      for (const [series, key] of keys.entries()) {
+        ctx.strokeStyle = colors[series]; ctx.lineWidth = 2; ctx.setLineDash([]); ctx.beginPath();
+        points.forEach((point, i) => { if (i === 0) ctx.moveTo(x(point.time), y(point[key], maximum)); else ctx.lineTo(x(point.time), y(point[key], maximum)); });
         ctx.stroke();
       }
       ctx.restore();
     }
     new ResizeObserver(drawFlow).observe(flowChart);
-    new ResizeObserver(drawFlow).observe(classFlowChart);
+    new ResizeObserver(drawFlow).observe(accumulationChart);
     drawFlow();
     drawAirspace();
-    renderEntries();
   </script>
 </body>
 </html>

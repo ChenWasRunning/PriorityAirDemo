@@ -5,10 +5,6 @@ class AirSimulation {
     this.reset();
   }
 
-  exponential() {
-    return -Math.log(1 - Math.min(1 - Number.EPSILON, Math.max(Number.EPSILON, this.random())));
-  }
-
   reset() {
     this.time = 0;
     this.nextId = 1;
@@ -19,16 +15,19 @@ class AirSimulation {
     this.outflow = 0;
     this.completedByClass = { priority: 0, standard: 0 };
     this.classOutflow = { gp: 0, gs: 0 };
-    this.classFlowHistory = [{ time: 0, gp: 0, gs: 0 }];
-    this.classFlowLabels = { time: 0, gp: 0, gs: 0 };
+    this.classFlowHistory = [{ time: 0, gp: 0, gs: 0, np: 0, ns: 0 }];
+    this.classFlowLabels = { time: 0, gp: 0, gs: 0, np: 0, ns: 0 };
+    this.classActiveTime = { priority: 0, standard: 0 };
+    this.classAccumulation = { np: 0, ns: 0 };
     this.activeTime = 0;
-    this.activeTimeHistory = [{ time: 0, value: 0 }];
+    this.activeTimeHistory = [{ time: 0, value: 0, priority: 0, standard: 0 }];
     this.meanAccumulation = 0;
     this.flowHistory = [{ time: 0, g: 0, n: 0 }];
     this.flowLabels = { time: 0, g: 0, n: 0 };
     this.completionHistory = [{ time: 0, count: 0 }];
     this.arrivals = { priority: 0, standard: 0 };
-    this.remaining = { priority: this.exponential(), standard: this.exponential() };
+    this.entryRates = { priority: 0, standard: 0 };
+    this.nextEntry = { priority: Infinity, standard: Infinity };
   }
 
   createTrip(kind, entryTime) {
@@ -57,14 +56,18 @@ class AirSimulation {
       const end = Math.min(target, (Math.floor(this.time / this.control.step + 1e-7) + 1) * this.control.step, Math.floor(this.time) + 1);
       this.advanceSegment(end - this.time, totalRate, alpha);
       if (Number.isInteger(end)) {
-        this.activeTimeHistory.push({ time: end, value: this.activeTime });
+        this.activeTimeHistory.push({ time: end, value: this.activeTime, ...this.classActiveTime });
         while (this.activeTimeHistory.length > 1 && this.activeTimeHistory[1].time <= end - 300) this.activeTimeHistory.shift();
         this.meanAccumulation = Math.max(0, (this.activeTime - this.activeTimeHistory[0].value) / 300);
+        this.classAccumulation = {
+          np: Math.max(0, (this.classActiveTime.priority - this.activeTimeHistory[0].priority) / 300),
+          ns: Math.max(0, (this.classActiveTime.standard - this.activeTimeHistory[0].standard) / 300)
+        };
         this.completionSummary();
         if (end % 10 === 0) this.flowHistory.push({ time: end, g: this.outflow, n: this.meanAccumulation });
         if (end % 120 === 0) this.flowLabels = { time: end, g: this.outflow, n: this.meanAccumulation };
-        if (end % 10 === 0) this.classFlowHistory.push({ time: end, ...this.classOutflow });
-        if (end % 120 === 0) this.classFlowLabels = { time: end, ...this.classOutflow };
+        if (end % 10 === 0) this.classFlowHistory.push({ time: end, ...this.classOutflow, ...this.classAccumulation });
+        if (end % 120 === 0) this.classFlowLabels = { time: end, ...this.classOutflow, ...this.classAccumulation };
       }
     }
     while (this.flowHistory.length > 1 && this.flowHistory[1].time <= this.time - 600) this.flowHistory.shift();
@@ -77,17 +80,19 @@ class AirSimulation {
     const rates = { priority: totalRate * alpha, standard: totalRate * (1 - alpha) };
     for (const kind of ['priority', 'standard']) {
       const rate = rates[kind];
+      // A changed rate starts a fresh fixed interval from the change time.
+      if (rate !== this.entryRates[kind]) {
+        this.entryRates[kind] = rate;
+        this.nextEntry[kind] = rate > 0 ? this.time + 1 / rate : Infinity;
+      }
       if (rate === 0) continue;
-      let cursor = this.time;
-      // Unit-exponential residuals preserve the arrival process when rates change.
-      while (this.remaining[kind] <= rate * (end - cursor)) {
-        cursor += this.remaining[kind] / rate;
+      while (this.nextEntry[kind] <= end + 1e-10) {
+        const cursor = Math.max(this.time, Math.min(end, this.nextEntry[kind]));
         const trip = this.createTrip(kind, cursor);
         this.arrivals[kind]++;
         entries.push(trip);
-        this.remaining[kind] = this.exponential();
+        this.nextEntry[kind] += 1 / rate;
       }
-      this.remaining[kind] -= rate * (end - cursor);
     }
     for (const trip of entries.sort((a, b) => a.entryTime - b.entryTime)) {
       this.moveDrones(trip.entryTime - this.time);
@@ -165,10 +170,12 @@ class AirSimulation {
       const fraction = length2 > 0 ? Math.max(0, Math.min(1, (dx * sx + dy * sy) / length2)) : 0;
       if (Math.hypot(dx - fraction * sx, dy - fraction * sy) <= this.control.arrivalRadius) {
         this.activeTime += dt * fraction;
+        this.classActiveTime[drone.kind] += dt * fraction;
         completions.push({ time: this.time + dt * fraction, kind: drone.kind });
         continue;
       }
       this.activeTime += dt;
+      this.classActiveTime[drone.kind] += dt;
       drone.vx = sx / dt; drone.vy = sy / dt;
       drone.x = nx; drone.y = ny;
       const last = drone.trail[drone.trail.length - 1];

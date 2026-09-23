@@ -172,12 +172,41 @@ test('ten-minute axes slide continuously with fixed two-minute ticks', () => {
   assert(Math.abs(after.start - before.start - 0.02) < 1e-9);
   assert(Math.abs(after.end - before.end - 0.02) < 1e-9);
 });
-test('independent exponential streams produce the requested rates', () => {
+test('regular class streams produce the requested rates', () => {
   const sim = new AirSimulation(seeded());
   sim.advance(10000, 0.8, 0.25);
   assert(Math.abs(sim.arrivals.priority / 10000 - 0.2) < 0.025);
   assert(Math.abs(sim.arrivals.standard / 10000 - 0.6) < 0.03);
   assert(sim.drones.length < 100);
+});
+test('class entry intervals are exactly reciprocal rates and restart on rate changes', () => {
+  const sim = new AirSimulation(seeded());
+  const entries = [];
+  const create = sim.createTrip.bind(sim);
+  sim.createTrip = (kind, time) => { entries.push({ kind, time }); return create(kind, time); };
+  sim.advance(6, 2, 0.25);
+  const pr = entries.filter(e => e.kind === 'priority');
+  const st = entries.filter(e => e.kind === 'standard');
+  assert.equal(pr.length, 3);
+  assert.equal(st.length, 9);
+  pr.forEach((e, i) => assert(Math.abs(e.time - (i + 1) * 2) < 1e-9));
+  st.forEach((e, i) => assert(Math.abs(e.time - (i + 1) / 1.5) < 1e-9));
+  sim.advance(0.9, 1, 0);
+  assert.equal(entries.length, 12);
+  sim.advance(0.1, 1, 0);
+  assert.equal(entries.length, 13);
+  assert(Math.abs(entries.at(-1).time - 7) < 1e-9);
+});
+test('five-minute class accumulation adds up to total at each plotted sample', () => {
+  const sim = new AirSimulation(seeded());
+  sim.advance(720, 2, 0.4);
+  for (let i = 0; i < sim.flowHistory.length; i++) {
+    const c = sim.classFlowHistory[i];
+    assert(Math.abs(c.np + c.ns - sim.flowHistory[i].n) < 1e-8);
+  }
+  assert(sim.classAccumulation.np > 0 && sim.classAccumulation.ns > 0);
+  sim.reset();
+  assert.deepEqual(sim.classAccumulation, { np: 0, ns: 0 });
 });
 test('zero rates, class endpoints, and rate changes', () => {
   const sim = new AirSimulation(seeded());
