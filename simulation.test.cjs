@@ -244,12 +244,18 @@ test('OD geometry, exact speed, landing and reset', () => {
 test('outflow estimates use active speeds and generation-average OD distances', () => {
   const sim = new AirSimulation();
   sim.time = 400; sim.outflow = 0.5; sim.meanAccumulation = 2;
-  sim.kinematicTotals = { activeTime: 20, trueDistance: 150, projectedDistance: 130 };
+  sim.kinematicTotals = {
+    activeTime: 20, trueDistance: 150, projectedDistance: 130,
+    activeTimePriority: 8, trueDistancePriority: 40, projectedDistancePriority: 32,
+    activeTimeStandard: 12, trueDistanceStandard: 110, projectedDistanceStandard: 98
+  };
   sim.kinematicHistory = [{ time: 100, activeTime: 0, trueDistance: 0, projectedDistance: 0 }];
   sim.departureDistances = [{ time: 100, distance: 999 }, { time: 200, distance: 100 }, { time: 399, distance: 200 }];
   sim.completedLengths = [{ time: 100, length: 999 }, { time: 200, length: 200 }, { time: 399, length: 400 }];
   const e = sim.outflowEstimates();
   assert.equal(e.V, 7.5); assert.equal(e.U, 6.5); assert.equal(e.S, 150);
+  assert.equal(e.Vp, 5); assert.equal(e.Up, 4);
+  assert.equal(e.Vs, 110 / 12); assert.equal(e.Us, 98 / 12);
   assert.equal(e.L, 300); assert.equal(e.g0, 0.5);
   assert.equal(e.gproj, 13 / 150); assert.equal(e.gconv, 15 / 300);
   sim.time = 700; sim.kinematicHistory.push({ time: 400, ...sim.kinematicTotals });

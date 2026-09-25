@@ -15,9 +15,14 @@ class AirSimulation {
     this.outflow = 0;
     this.completedLengths = [];
     this.departureDistances = [];
-    this.kinematicTotals = { activeTime: 0, trueDistance: 0, projectedDistance: 0 };
+    this.kinematicTotals = {
+      activeTime: 0, trueDistance: 0, projectedDistance: 0,
+      activeTimePriority: 0, trueDistancePriority: 0, projectedDistancePriority: 0,
+      activeTimeStandard: 0, trueDistanceStandard: 0, projectedDistanceStandard: 0
+    };
     this.kinematicHistory = [{ time: 0, ...this.kinematicTotals }];
-    this.estimateHistory = [{ time: 0, U: 0, V: 0, g0: 0, gproj: 0, gconv: null }];
+    this.estimateHistory = [{ time: 0, U: 0, V: 0, Up: 0, Vp: 0, Us: 0, Vs: 0,
+      g0: 0, gproj: 0, gconv: null }];
     this.estimateLabels = this.estimateHistory[0];
     this.completedByClass = { priority: 0, standard: 0 };
     this.classOutflow = { gp: 0, gs: 0 };
@@ -221,6 +226,10 @@ class AirSimulation {
     this.kinematicTotals.activeTime += activeDuration;
     this.kinematicTotals.trueDistance += trueDistance;
     this.kinematicTotals.projectedDistance += (dx * odx + dy * ody) / drone.distance;
+    const suffix = drone.kind === 'priority' ? 'Priority' : 'Standard';
+    this.kinematicTotals[`activeTime${suffix}`] += activeDuration;
+    this.kinematicTotals[`trueDistance${suffix}`] += trueDistance;
+    this.kinematicTotals[`projectedDistance${suffix}`] += (dx * odx + dy * ody) / drone.distance;
   }
 
   outflowEstimates() {
@@ -236,6 +245,15 @@ class AirSimulation {
     const n = this.meanAccumulation;
     const V = activeTime > 0 ? (this.kinematicTotals.trueDistance - baseline.trueDistance) / activeTime : 0;
     const U = activeTime > 0 ? (this.kinematicTotals.projectedDistance - baseline.projectedDistance) / activeTime : 0;
+    const classSpeed = suffix => {
+      const classActiveTime = (this.kinematicTotals[`activeTime${suffix}`] || 0) - (baseline[`activeTime${suffix}`] || 0);
+      return {
+        V: classActiveTime > 0 ? ((this.kinematicTotals[`trueDistance${suffix}`] || 0) - (baseline[`trueDistance${suffix}`] || 0)) / classActiveTime : 0,
+        U: classActiveTime > 0 ? ((this.kinematicTotals[`projectedDistance${suffix}`] || 0) - (baseline[`projectedDistance${suffix}`] || 0)) / classActiveTime : 0
+      };
+    };
+    const prioritySpeed = classSpeed('Priority');
+    const standardSpeed = classSpeed('Standard');
     const S = this.departureDistances.length
       ? this.departureDistances.reduce((sum, p) => sum + p.distance, 0) / this.departureDistances.length
       : null;
@@ -244,7 +262,8 @@ class AirSimulation {
       : (this.completedLengths.length
         ? this.completedLengths.reduce((sum, p) => sum + p.length, 0) / this.completedLengths.length
         : null);
-    return { n, U, V, S, L, g0: this.outflow,
+    return { n, U, V, Up: prioritySpeed.U, Vp: prioritySpeed.V,
+      Us: standardSpeed.U, Vs: standardSpeed.V, S, L, g0: this.outflow,
       gproj: n && S > 0 ? n * U / S : 0, gconv: n && L > 0 ? n * V / L : (n ? null : 0) };
   }
 
