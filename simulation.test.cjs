@@ -294,13 +294,13 @@ test('realized trip length includes turns and the fractional final movement', ()
   assert.equal(sim.completedLengths[0].time, 2);
 });
 
-test('earlier same-class departures break a three-drone destination orbit', () => {
+test('earlier prioritized departures break a three-drone destination orbit', () => {
   const sim = new AirSimulation(() => 0.5);
   const destination = { x: 250, y: 250 };
   for (let i = 0; i < 3; i++) {
     const angle = i * 2 * Math.PI / 3;
     const origin = { x: 250 + 20 * Math.cos(angle), y: 250 + 20 * Math.sin(angle) };
-    sim.drones.push(sim.makeTrip('standard', i, origin, destination));
+    sim.drones.push(sim.makeTrip('priority', i, origin, destination));
   }
   for (let step = 0; step < 2000 && sim.drones.length; step++) {
     sim.moveDrones(0.05);
@@ -308,5 +308,21 @@ test('earlier same-class departures break a three-drone destination orbit', () =
   }
   assert.equal(sim.completed, 3);
   assert.equal(sim.drones.length, 0);
-  assert.deepEqual(sim.completionHistory.slice(1).map(point => point.standard), [1, 2, 3]);
+  assert.deepEqual(sim.completionHistory.slice(1).map(point => point.priority), [1, 2, 3]);
+});
+
+test('standard drones retain symmetric destination avoidance', () => {
+  const sim = new AirSimulation(() => 0.5);
+  const destination = { x: 250, y: 250 };
+  for (let i = 0; i < 3; i++) {
+    const angle = i * 2 * Math.PI / 3;
+    const origin = { x: 250 + 20 * Math.cos(angle), y: 250 + 20 * Math.sin(angle) };
+    sim.drones.push(sim.makeTrip('standard', i, origin, destination));
+  }
+  for (let step = 0; step < 400; step++) {
+    sim.moveDrones(0.05);
+    sim.time += 0.05;
+  }
+  assert.equal(sim.completed, 0);
+  assert.equal(sim.drones.length, 3);
 });

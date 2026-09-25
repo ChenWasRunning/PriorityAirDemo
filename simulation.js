@@ -148,7 +148,7 @@ class AirSimulation {
         for (let iy = cy - 1; iy <= cy + 1; iy++) {
           for (const other of grid.get(key(ix, iy)) || []) {
             if (other === drone || (drone.kind === 'priority' && other.kind !== 'priority')) continue;
-            if (other.kind === drone.kind) {
+            if (drone.kind === 'priority' && other.kind === 'priority') {
               const otherDistance = Math.hypot(other.destination.x - other.x, other.destination.y - other.y);
               const arrivalRadius = 1.1 * radius;
               const droneIsArriving = distance <= arrivalRadius;
