@@ -250,13 +250,17 @@ test('outflow estimates use active speeds and generation-average OD distances', 
     activeTimeStandard: 12, trueDistanceStandard: 110, projectedDistanceStandard: 98
   };
   sim.kinematicHistory = [{ time: 100, activeTime: 0, trueDistance: 0, projectedDistance: 0 }];
-  sim.departureDistances = [{ time: 100, distance: 999 }, { time: 200, distance: 100 }, { time: 399, distance: 200 }];
-  sim.completedLengths = [{ time: 100, length: 999 }, { time: 200, length: 200 }, { time: 399, length: 400 }];
+  sim.departureDistances = [{ time: 100, distance: 999, kind: 'priority' },
+    { time: 200, distance: 100, kind: 'standard' }, { time: 399, distance: 200, kind: 'priority' }];
+  sim.completedLengths = [{ time: 100, length: 999, kind: 'priority' },
+    { time: 200, length: 200, kind: 'standard' }, { time: 399, length: 400, kind: 'priority' }];
   const e = sim.outflowEstimates();
   assert.equal(e.V, 7.5); assert.equal(e.U, 6.5); assert.equal(e.S, 150);
   assert.equal(e.Vp, 5); assert.equal(e.Up, 4);
   assert.equal(e.Vs, 110 / 12); assert.equal(e.Us, 98 / 12);
   assert.equal(e.L, 300); assert.equal(e.g0, 0.5);
+  assert.equal(e.Ss, 100); assert.equal(e.Sp, 200);
+  assert.equal(e.Ls, 200); assert.equal(e.Lp, 400);
   assert.equal(e.gproj, 13 / 150); assert.equal(e.gconv, 15 / 300);
   sim.time = 700; sim.kinematicHistory.push({ time: 400, ...sim.kinematicTotals });
   assert.equal(sim.outflowEstimates().gconv, null);

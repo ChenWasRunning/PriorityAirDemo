@@ -19,21 +19,23 @@
     .plot-legend { position: absolute; right: 20px; top: 38px; display: grid; gap: 3px; font-size: 10px; background: #f5f7f7; padding: 2px 4px; }
     .plot-legend > span { display: grid; grid-template-columns: 12px 28px 8px 6ch auto; align-items: center; gap: 3px; white-space: nowrap; }
     .plot-legend > span::before { content: ''; width: 12px; border-top: 2px solid currentColor; }
-    .plot-legend > span[data-series^="U"]::before { border-top-style: dashed; }
+    .plot-legend > span[data-series^="U"]::before,
+    .plot-legend > span[data-series^="S"]::before { border-top-style: dashed; }
     .plot-legend output { text-align: right; }
     .plot-legend .equals { text-align: center; }
     .plot-legend math, .chart-axis-label math { font-size: 12px; }
     .series-total { color: #007f76; }
     .series-standard { color: #2478d4; }
     .series-priority { color: #d93644; }
-    #flow-chart, #speed-chart { aspect-ratio: auto; height: 280px; border: 0; background: transparent; }
+    #flow-chart, #speed-chart, #distance-chart { aspect-ratio: auto; height: 220px; border: 0; background: transparent; }
     .series-ground { color: #000; }
     .series-conventional { color: #8c52b3; }
     .accumulation-panel { margin-top: 12px; }
-    .chart-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) 40px; gap: 8px; margin-bottom: 6px; }
+    .chart-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) 34px; gap: 6px; margin-bottom: 5px; }
+    .chart-toolbar button { height: 34px; }
     .chart-toolbar .chart-toggle { width: 100%; justify-content: flex-start; gap: 8px; padding: 0 12px; }
-    .chart-toolbar .chart-mode { width: 40px; padding: 0; }
-    .chart-reveal { max-height: 300px; opacity: 1; transform: translateY(0); overflow: hidden; transition: max-height 360ms ease, opacity 240ms ease, transform 360ms ease; }
+    .chart-toolbar .chart-mode { width: 34px; padding: 0; }
+    .chart-reveal { max-height: 240px; opacity: 1; transform: translateY(0); overflow: hidden; transition: max-height 360ms ease, opacity 240ms ease, transform 360ms ease; }
     .chart-block[data-open="false"] .chart-reveal { max-height: 0; opacity: 0; transform: translateY(-10px); }
     .chart-block + .chart-block { margin-top: 12px; }
     .series-mode-icon { display: grid; gap: 3px; width: 18px; }
@@ -116,7 +118,6 @@
       .legend { gap: 8px; }
       .legend > span { gap: 4px; }
       .legend { flex-wrap: wrap; }
-      .time-controls { flex-basis: 100%; }
       #speed { width: 60px; }
     }
   </style>
@@ -135,10 +136,9 @@
         </a>
       </div>
     </header>
-    <div class="meta"><div class="airspace-meta"><span>2D airspace · 500 m × 500 m</span><div class="status-time"><span id="status" class="status" data-running="false" role="status">Ready</span><output id="clock" aria-label="Simulation time">t = 00:00</output></div></div>
+    <div class="meta"><div class="airspace-meta"><div class="time-controls"><label for="speed">Speed</label><input id="speed" type="range" min="1" max="100" step="1" value="1"><output id="speed-value">1×</output></div><div class="status-time"><span id="status" class="status" data-running="false" role="status">Ready</span><output id="clock" aria-label="Simulation time">t = 00:00</output></div></div>
     </div>
     <div class="legend" aria-label="Drone classes">
-      <div class="time-controls"><label for="speed">Speed</label><input id="speed" type="range" min="1" max="100" step="1" value="1"><output id="speed-value">1×</output></div>
       <span><i></i>Prioritized (Acc. = <output id="snapshot-np">0</output>)</span>
       <span><i class="standard"></i>Standard (Acc. = <output id="snapshot-ns">0</output>)</span>
     </div>
@@ -187,6 +187,27 @@
             </div>
           </div>
         </div>
+        <div class="chart-block" id="distance-block" data-open="true">
+          <div class="chart-toolbar">
+            <button class="chart-toggle" type="button" aria-expanded="true" aria-controls="distance-reveal"><img src="assets/icons/eye.svg" alt=""><span>Distance versus time</span></button>
+            <button class="chart-mode" type="button" data-mode="all" aria-label="Showing all distance series" title="Show all"><span class="series-mode-icon"><i class="total"></i><i class="standard"></i><i class="priority"></i></span></button>
+          </div>
+          <div class="chart-reveal" id="distance-reveal">
+            <div class="chart-area">
+              <div class="plot-legend" aria-label="Trip distance legend">
+                <span class="series-total" data-series="L"><math><msub><mi>L</mi><mtext mathvariant="bold">tot</mtext></msub></math><span class="equals">=</span><output id="l-label">--</output><span>m</span></span>
+                <span class="series-total" data-series="S"><math><msub><mi>S</mi><mtext mathvariant="bold">tot</mtext></msub></math><span class="equals">=</span><output id="s-label">--</output><span>m</span></span>
+                <span class="series-standard" data-series="Ls"><math><msub><mi>L</mi><mtext mathvariant="bold">st</mtext></msub></math><span class="equals">=</span><output id="ls-label">--</output><span>m</span></span>
+                <span class="series-standard" data-series="Ss"><math><msub><mi>S</mi><mtext mathvariant="bold">st</mtext></msub></math><span class="equals">=</span><output id="ss-label">--</output><span>m</span></span>
+                <span class="series-priority" data-series="Lp"><math><msub><mi>L</mi><mtext mathvariant="bold">pr</mtext></msub></math><span class="equals">=</span><output id="lp-label">--</output><span>m</span></span>
+                <span class="series-priority" data-series="Sp"><math><msub><mi>S</mi><mtext mathvariant="bold">pr</mtext></msub></math><span class="equals">=</span><output id="sp-label">--</output><span>m</span></span>
+              </div>
+              <span class="chart-axis-label">Mean distance</span>
+              <span class="chart-x-label">Time [min]</span>
+              <canvas id="distance-chart" aria-label="Five-minute mean realized and OD trip distances versus time"></canvas>
+            </div>
+          </div>
+        </div>
       </section>
     </div>
     <section class="controls" aria-label="Simulation controls">
@@ -217,7 +238,7 @@
       </div>
     </section>
   </main>
-  <script src="simulation.js?v=speed-chart-2"></script>
+  <script src="simulation.js?v=distance-chart-1"></script>
   <script>
     const defaults = Object.freeze({ q: 3.6, alpha: 0.3 });
     const visibility = { destinations: true, trajectories: true };
@@ -440,7 +461,8 @@
     new ResizeObserver(drawAirspace).observe(canvas);
     const flowChart = document.querySelector('#flow-chart');
     const speedChart = document.querySelector('#speed-chart');
-    const chartModes = { flow: 'all', speed: 'all' };
+    const distanceChart = document.querySelector('#distance-chart');
+    const chartModes = { flow: 'all', speed: 'all', distance: 'all' };
     const modeOrder = ['total', 'classes', 'all'];
     const chartSeries = {
       flow: {
@@ -453,13 +475,20 @@
           { key: 'Vs', color: '#2478d4' }, { key: 'Us', color: '#2478d4', dashed: true },
           { key: 'Vp', color: '#d93644' }, { key: 'Up', color: '#d93644', dashed: true }
         ]
+      },
+      distance: {
+        total: [{ key: 'L', color: '#007f76' }, { key: 'S', color: '#007f76', dashed: true }],
+        classes: [
+          { key: 'Ls', color: '#2478d4' }, { key: 'Ss', color: '#2478d4', dashed: true },
+          { key: 'Lp', color: '#d93644' }, { key: 'Sp', color: '#d93644', dashed: true }
+        ]
       }
     };
     const visibleSeries = chart => chartModes[chart] === 'all'
       ? [...chartSeries[chart].total, ...chartSeries[chart].classes]
       : chartSeries[chart][chartModes[chart]];
 
-    for (const chart of ['flow', 'speed']) {
+    for (const chart of ['flow', 'speed', 'distance']) {
       const block = document.querySelector(`#${chart}-block`);
       const toggleButton = block.querySelector('.chart-toggle');
       const modeButton = block.querySelector('.chart-mode');
@@ -489,14 +518,21 @@
       const flowPoints = simulation.flowHistory.map((point, i) => ({ ...point, ...simulation.classFlowHistory[i] }));
       const flowSeries = visibleSeries('flow');
       const speedSeries = visibleSeries('speed');
+      const distanceSeries = visibleSeries('distance');
       document.querySelectorAll('#flow-block [data-series]').forEach(item => { item.hidden = !flowSeries.some(series => series.key === item.dataset.series); });
       document.querySelectorAll('#speed-block [data-series]').forEach(item => { item.hidden = !speedSeries.some(series => series.key === item.dataset.series); });
+      document.querySelectorAll('#distance-block [data-series]').forEach(item => { item.hidden = !distanceSeries.some(series => series.key === item.dataset.series); });
       drawTimePlot(flowChart, flowPoints, 'g', flowSeries);
       for (const key of ['V', 'U', 'Vs', 'Us', 'Vp', 'Up']) {
         const value = simulation.estimateLabels[key];
         document.querySelector(`#${key.toLowerCase()}-label`).textContent = Number.isFinite(value) ? value.toFixed(1) : '--';
       }
       drawTimePlot(speedChart, simulation.estimateHistory, 'v', speedSeries);
+      for (const key of ['L', 'S', 'Ls', 'Ss', 'Lp', 'Sp']) {
+        const value = simulation.estimateLabels[key];
+        document.querySelector(`#${key.toLowerCase()}-label`).textContent = Number.isFinite(value) ? value.toFixed(0) : '--';
+      }
+      drawTimePlot(distanceChart, simulation.estimateHistory, 'd', distanceSeries);
     }
     function drawTimePlot(target, points, quantity, series) {
       const keys = series.map(item => item.key);
@@ -544,6 +580,7 @@
     }
     new ResizeObserver(drawFlow).observe(flowChart);
     new ResizeObserver(drawFlow).observe(speedChart);
+    new ResizeObserver(drawFlow).observe(distanceChart);
     drawFlow();
     drawAirspace();
   </script>

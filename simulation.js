@@ -22,6 +22,7 @@ class AirSimulation {
     };
     this.kinematicHistory = [{ time: 0, ...this.kinematicTotals }];
     this.estimateHistory = [{ time: 0, U: 0, V: 0, Up: 0, Vp: 0, Us: 0, Vs: 0,
+      S: null, L: null, Sp: null, Lp: null, Ss: null, Ls: null,
       g0: 0, gproj: 0, gconv: null }];
     this.estimateLabels = this.estimateHistory[0];
     this.completedByClass = { priority: 0, standard: 0 };
@@ -115,7 +116,7 @@ class AirSimulation {
       this.moveDrones(trip.entryTime - this.time);
       this.time = trip.entryTime;
       this.drones.push(trip);
-      this.departureDistances.push({ time: trip.entryTime, distance: trip.distance });
+      this.departureDistances.push({ time: trip.entryTime, distance: trip.distance, kind: trip.kind });
     }
     this.moveDrones(end - this.time);
     this.time = end;
@@ -213,7 +214,7 @@ class AirSimulation {
     }
     this.drones = survivors;
     for (const { time, kind, length } of completions.sort((a, b) => a.time - b.time)) {
-      this.completedLengths.push({ time, length });
+      this.completedLengths.push({ time, length, kind });
       this.completedByClass[kind]++;
       this.completionHistory.push({ time, count: ++this.completed, ...this.completedByClass });
     }
@@ -254,16 +255,20 @@ class AirSimulation {
     };
     const prioritySpeed = classSpeed('Priority');
     const standardSpeed = classSpeed('Standard');
-    const S = this.departureDistances.length
-      ? this.departureDistances.reduce((sum, p) => sum + p.distance, 0) / this.departureDistances.length
-      : null;
+    const meanDistance = (records, kind) => {
+      const selected = kind ? records.filter(record => record.kind === kind) : records;
+      return selected.length ? selected.reduce((sum, record) => sum + (record.distance ?? record.length), 0) / selected.length : null;
+    };
+    const S = meanDistance(this.departureDistances);
+    const Sp = meanDistance(this.departureDistances, 'priority');
+    const Ss = meanDistance(this.departureDistances, 'standard');
     const L = this.time <= 300
       ? S
-      : (this.completedLengths.length
-        ? this.completedLengths.reduce((sum, p) => sum + p.length, 0) / this.completedLengths.length
-        : null);
+      : meanDistance(this.completedLengths);
+    const Lp = this.time <= 300 ? Sp : meanDistance(this.completedLengths, 'priority');
+    const Ls = this.time <= 300 ? Ss : meanDistance(this.completedLengths, 'standard');
     return { n, U, V, Up: prioritySpeed.U, Vp: prioritySpeed.V,
-      Us: standardSpeed.U, Vs: standardSpeed.V, S, L, g0: this.outflow,
+      Us: standardSpeed.U, Vs: standardSpeed.V, S, L, Sp, Lp, Ss, Ls, g0: this.outflow,
       gproj: n && S > 0 ? n * U / S : 0, gconv: n && L > 0 ? n * V / L : (n ? null : 0) };
   }
 
