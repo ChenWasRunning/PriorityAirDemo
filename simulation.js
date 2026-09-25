@@ -148,6 +148,15 @@ class AirSimulation {
         for (let iy = cy - 1; iy <= cy + 1; iy++) {
           for (const other of grid.get(key(ix, iy)) || []) {
             if (other === drone || (drone.kind === 'priority' && other.kind !== 'priority')) continue;
+            if (other.kind === drone.kind) {
+              const otherDistance = Math.hypot(other.destination.x - other.x, other.destination.y - other.y);
+              const arrivalRadius = 1.1 * radius;
+              const droneIsArriving = distance <= arrivalRadius;
+              const otherIsArriving = otherDistance <= arrivalRadius;
+              const departedEarlier = drone.entryTime < other.entryTime ||
+                (drone.entryTime === other.entryTime && drone.id < other.id);
+              if (droneIsArriving && (!otherIsArriving || departedEarlier)) continue;
+            }
             this.neighborChecks++;
             let rx = drone.x - other.x, ry = drone.y - other.y;
             const squared = rx * rx + ry * ry;
