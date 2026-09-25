@@ -14,7 +14,8 @@ class AirSimulation {
     this.outflowSecond = -1;
     this.outflow = 0;
     this.completedLengths = [];
-    this.kinematicTotals = { activeTime: 0, trueDistance: 0, projectedDistance: 0, odTime: 0 };
+    this.departureDistances = [];
+    this.kinematicTotals = { activeTime: 0, trueDistance: 0, projectedDistance: 0 };
     this.kinematicHistory = [{ time: 0, ...this.kinematicTotals }];
     this.estimateHistory = [{ time: 0, g0: 0, gproj: 0, gconv: null }];
     this.estimateLabels = this.estimateHistory[0];
@@ -109,6 +110,7 @@ class AirSimulation {
       this.moveDrones(trip.entryTime - this.time);
       this.time = trip.entryTime;
       this.drones.push(trip);
+      this.departureDistances.push({ time: trip.entryTime, distance: trip.distance });
     }
     this.moveDrones(end - this.time);
     this.time = end;
@@ -219,11 +221,11 @@ class AirSimulation {
     this.kinematicTotals.activeTime += activeDuration;
     this.kinematicTotals.trueDistance += trueDistance;
     this.kinematicTotals.projectedDistance += (dx * odx + dy * ody) / drone.distance;
-    this.kinematicTotals.odTime += drone.distance * activeDuration;
   }
 
   outflowEstimates() {
     while (this.completedLengths.length && this.completedLengths[0].time <= this.time - 300) this.completedLengths.shift();
+    while (this.departureDistances.length && this.departureDistances[0].time <= this.time - 300) this.departureDistances.shift();
     const windowStart = this.time - 300;
     let baseline = this.kinematicHistory[0];
     for (const point of this.kinematicHistory) {
@@ -234,7 +236,9 @@ class AirSimulation {
     const n = this.meanAccumulation;
     const V = activeTime > 0 ? (this.kinematicTotals.trueDistance - baseline.trueDistance) / activeTime : 0;
     const U = activeTime > 0 ? (this.kinematicTotals.projectedDistance - baseline.projectedDistance) / activeTime : 0;
-    const S = activeTime > 0 ? (this.kinematicTotals.odTime - baseline.odTime) / activeTime : null;
+    const S = this.departureDistances.length
+      ? this.departureDistances.reduce((sum, p) => sum + p.distance, 0) / this.departureDistances.length
+      : null;
     const L = this.time <= 300
       ? S
       : (this.completedLengths.length

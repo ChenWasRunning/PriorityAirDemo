@@ -241,11 +241,12 @@ test('OD geometry, exact speed, landing and reset', () => {
   assert.equal(sim.time, 0);
   assert.equal(sim.drones.length, 0);
 });
-test('outflow estimates use active speeds and OD distances with recent completed lengths', () => {
+test('outflow estimates use active speeds and generation-average OD distances', () => {
   const sim = new AirSimulation();
   sim.time = 400; sim.outflow = 0.5; sim.meanAccumulation = 2;
-  sim.kinematicTotals = { activeTime: 20, trueDistance: 150, projectedDistance: 130, odTime: 3000 };
-  sim.kinematicHistory = [{ time: 100, activeTime: 0, trueDistance: 0, projectedDistance: 0, odTime: 0 }];
+  sim.kinematicTotals = { activeTime: 20, trueDistance: 150, projectedDistance: 130 };
+  sim.kinematicHistory = [{ time: 100, activeTime: 0, trueDistance: 0, projectedDistance: 0 }];
+  sim.departureDistances = [{ time: 100, distance: 999 }, { time: 200, distance: 100 }, { time: 399, distance: 200 }];
   sim.completedLengths = [{ time: 100, length: 999 }, { time: 200, length: 200 }, { time: 399, length: 400 }];
   const e = sim.outflowEstimates();
   assert.equal(e.V, 7.5); assert.equal(e.U, 6.5); assert.equal(e.S, 150);
@@ -255,6 +256,7 @@ test('outflow estimates use active speeds and OD distances with recent completed
   assert.equal(sim.outflowEstimates().gconv, null);
   sim.reset();
   assert.equal(sim.completedLengths.length, 0);
+  assert.equal(sim.departureDistances.length, 0);
   assert.equal(sim.kinematicHistory.length, 1);
   assert.equal(sim.estimateHistory.length, 1);
 });
@@ -263,7 +265,8 @@ test('first outflow-estimate interval uses S in place of unavailable L', () => {
   const sim = new AirSimulation();
   sim.time = 60; sim.meanAccumulation = 3;
   sim.completed = 1; sim.completedLengths = [{ time: 50, length: 900 }];
-  sim.kinematicTotals = { activeTime: 30, trueDistance: 300, projectedDistance: 240, odTime: 4500 };
+  sim.departureDistances = [{ time: 10, distance: 100 }, { time: 20, distance: 200 }];
+  sim.kinematicTotals = { activeTime: 30, trueDistance: 300, projectedDistance: 240 };
   const e = sim.outflowEstimates();
   assert.equal(e.S, 150); assert.equal(e.L, 150);
   assert.equal(e.gproj, 3 * 8 / 150); assert.equal(e.gconv, 3 * 10 / 150);
