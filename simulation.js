@@ -14,6 +14,8 @@ class AirSimulation {
     this.outflowSecond = -1;
     this.outflow = 0;
     this.completedLengths = [];
+    this.kinematicTotals = { activeTime: 0, trueDistance: 0, projectedDistance: 0, odTime: 0 };
+    this.kinematicHistory = [{ time: 0, ...this.kinematicTotals }];
     this.estimateHistory = [{ time: 0, g0: 0, gproj: 0, gconv: null }];
     this.estimateLabels = this.estimateHistory[0];
     this.completedByClass = { priority: 0, standard: 0 };
@@ -59,6 +61,8 @@ class AirSimulation {
       const end = Math.min(target, (Math.floor(this.time / this.control.step + 1e-7) + 1) * this.control.step, Math.floor(this.time) + 1);
       this.advanceSegment(end - this.time, totalRate, alpha);
       if (Number.isInteger(end)) {
+        this.kinematicHistory.push({ time: end, ...this.kinematicTotals });
+        while (this.kinematicHistory.length > 1 && this.kinematicHistory[1].time <= end - 300) this.kinematicHistory.shift();
         this.activeTimeHistory.push({ time: end, value: this.activeTime, ...this.classActiveTime });
         while (this.activeTimeHistory.length > 1 && this.activeTimeHistory[1].time <= end - 300) this.activeTimeHistory.shift();
         this.meanAccumulation = Math.max(0, (this.activeTime - this.activeTimeHistory[0].value) / 300);
@@ -176,14 +180,17 @@ class AirSimulation {
       const length2 = sx * sx + sy * sy;
       const fraction = length2 > 0 ? Math.max(0, Math.min(1, (dx * sx + dy * sy) / length2)) : 0;
       if (Math.hypot(dx - fraction * sx, dy - fraction * sy) <= this.control.arrivalRadius) {
-        this.activeTime += dt * fraction;
-        this.classActiveTime[drone.kind] += dt * fraction;
+        const activeDuration = dt * fraction;
+        this.activeTime += activeDuration;
+        this.classActiveTime[drone.kind] += activeDuration;
+        this.recordKinematics(drone, sx * fraction, sy * fraction, activeDuration);
         completions.push({ time: this.time + dt * fraction, kind: drone.kind,
           length: drone.realizedLength + Math.sqrt(length2) * fraction });
         continue;
       }
       this.activeTime += dt;
       this.classActiveTime[drone.kind] += dt;
+      this.recordKinematics(drone, sx, sy, dt);
       drone.vx = sx / dt; drone.vy = sy / dt;
       drone.realizedLength += Math.sqrt(length2);
       drone.x = nx; drone.y = ny;
@@ -205,21 +212,36 @@ class AirSimulation {
     }
   }
 
+  recordKinematics(drone, dx, dy, activeDuration) {
+    const trueDistance = Math.hypot(dx, dy);
+    const odx = drone.destination.x - drone.origin.x;
+    const ody = drone.destination.y - drone.origin.y;
+    this.kinematicTotals.activeTime += activeDuration;
+    this.kinematicTotals.trueDistance += trueDistance;
+    this.kinematicTotals.projectedDistance += (dx * odx + dy * ody) / drone.distance;
+    this.kinematicTotals.odTime += drone.distance * activeDuration;
+  }
+
   outflowEstimates() {
     while (this.completedLengths.length && this.completedLengths[0].time <= this.time - 300) this.completedLengths.shift();
-    const n = this.drones.length;
-    let speed = 0, projected = 0, distance = 0;
-    for (const drone of this.drones) {
-      speed += Math.hypot(drone.vx, drone.vy);
-      projected += (drone.vx * (drone.destination.x - drone.origin.x) +
-        drone.vy * (drone.destination.y - drone.origin.y)) / drone.distance;
-      distance += drone.distance;
+    const windowStart = this.time - 300;
+    let baseline = this.kinematicHistory[0];
+    for (const point of this.kinematicHistory) {
+      if (point.time <= windowStart) baseline = point;
+      else break;
     }
-    const V = n ? speed / n : 0, U = n ? projected / n : 0;
-    const S = n ? distance / n : null;
-    const L = this.completedLengths.length ? this.completedLengths.reduce((sum, p) => sum + p.length, 0) / this.completedLengths.length : null;
+    const activeTime = this.kinematicTotals.activeTime - baseline.activeTime;
+    const n = this.meanAccumulation;
+    const V = activeTime > 0 ? (this.kinematicTotals.trueDistance - baseline.trueDistance) / activeTime : 0;
+    const U = activeTime > 0 ? (this.kinematicTotals.projectedDistance - baseline.projectedDistance) / activeTime : 0;
+    const S = activeTime > 0 ? (this.kinematicTotals.odTime - baseline.odTime) / activeTime : null;
+    const L = this.time <= 300
+      ? S
+      : (this.completedLengths.length
+        ? this.completedLengths.reduce((sum, p) => sum + p.length, 0) / this.completedLengths.length
+        : null);
     return { n, U, V, S, L, g0: this.outflow,
-      gproj: n ? n * U / S : 0, gconv: L > 0 ? n * V / L : null };
+      gproj: n && S > 0 ? n * U / S : 0, gconv: n && L > 0 ? n * V / L : (n ? null : 0) };
   }
 
   completionSummary() {

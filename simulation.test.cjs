@@ -243,21 +243,30 @@ test('OD geometry, exact speed, landing and reset', () => {
 });
 test('outflow estimates use active speeds and OD distances with recent completed lengths', () => {
   const sim = new AirSimulation();
-  const a = sim.makeTrip('priority', 0, { x: 0, y: 0 }, { x: 100, y: 0 });
-  const b = sim.makeTrip('standard', 0, { x: 0, y: 0 }, { x: 0, y: 200 });
-  a.vx = 3; a.vy = 4;
-  b.vx = 0; b.vy = 10;
-  sim.drones = [a, b]; sim.time = 400; sim.outflow = 0.5;
+  sim.time = 400; sim.outflow = 0.5; sim.meanAccumulation = 2;
+  sim.kinematicTotals = { activeTime: 20, trueDistance: 150, projectedDistance: 130, odTime: 3000 };
+  sim.kinematicHistory = [{ time: 100, activeTime: 0, trueDistance: 0, projectedDistance: 0, odTime: 0 }];
   sim.completedLengths = [{ time: 100, length: 999 }, { time: 200, length: 200 }, { time: 399, length: 400 }];
   const e = sim.outflowEstimates();
   assert.equal(e.V, 7.5); assert.equal(e.U, 6.5); assert.equal(e.S, 150);
   assert.equal(e.L, 300); assert.equal(e.g0, 0.5);
   assert.equal(e.gproj, 13 / 150); assert.equal(e.gconv, 15 / 300);
-  sim.time = 700;
+  sim.time = 700; sim.kinematicHistory.push({ time: 400, ...sim.kinematicTotals });
   assert.equal(sim.outflowEstimates().gconv, null);
   sim.reset();
   assert.equal(sim.completedLengths.length, 0);
+  assert.equal(sim.kinematicHistory.length, 1);
   assert.equal(sim.estimateHistory.length, 1);
+});
+
+test('first outflow-estimate interval uses S in place of unavailable L', () => {
+  const sim = new AirSimulation();
+  sim.time = 60; sim.meanAccumulation = 3;
+  sim.completed = 1; sim.completedLengths = [{ time: 50, length: 900 }];
+  sim.kinematicTotals = { activeTime: 30, trueDistance: 300, projectedDistance: 240, odTime: 4500 };
+  const e = sim.outflowEstimates();
+  assert.equal(e.S, 150); assert.equal(e.L, 150);
+  assert.equal(e.gproj, 3 * 8 / 150); assert.equal(e.gconv, 3 * 10 / 150);
 });
 
 test('realized trip length includes turns and the fractional final movement', () => {
