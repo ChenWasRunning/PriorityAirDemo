@@ -17,7 +17,7 @@ class AirSimulation {
     this.departureDistances = [];
     this.kinematicTotals = { activeTime: 0, trueDistance: 0, projectedDistance: 0 };
     this.kinematicHistory = [{ time: 0, ...this.kinematicTotals }];
-    this.estimateHistory = [{ time: 0, g0: 0, gproj: 0, gconv: null }];
+    this.estimateHistory = [{ time: 0, U: 0, V: 0, g0: 0, gproj: 0, gconv: null }];
     this.estimateLabels = this.estimateHistory[0];
     this.completedByClass = { priority: 0, standard: 0 };
     this.classOutflow = { gp: 0, gs: 0 };
