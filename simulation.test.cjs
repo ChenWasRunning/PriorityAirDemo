@@ -241,3 +241,33 @@ test('OD geometry, exact speed, landing and reset', () => {
   assert.equal(sim.time, 0);
   assert.equal(sim.drones.length, 0);
 });
+test('outflow estimates use active speeds and OD distances with recent completed lengths', () => {
+  const sim = new AirSimulation();
+  const a = sim.makeTrip('priority', 0, { x: 0, y: 0 }, { x: 100, y: 0 });
+  const b = sim.makeTrip('standard', 0, { x: 0, y: 0 }, { x: 0, y: 200 });
+  a.vx = 3; a.vy = 4;
+  b.vx = 0; b.vy = 10;
+  sim.drones = [a, b]; sim.time = 400; sim.outflow = 0.5;
+  sim.completedLengths = [{ time: 100, length: 999 }, { time: 200, length: 200 }, { time: 399, length: 400 }];
+  const e = sim.outflowEstimates();
+  assert.equal(e.V, 7.5); assert.equal(e.U, 6.5); assert.equal(e.S, 150);
+  assert.equal(e.L, 300); assert.equal(e.g0, 0.5);
+  assert.equal(e.gproj, 13 / 150); assert.equal(e.gconv, 15 / 300);
+  sim.time = 700;
+  assert.equal(sim.outflowEstimates().gconv, null);
+  sim.reset();
+  assert.equal(sim.completedLengths.length, 0);
+  assert.equal(sim.estimateHistory.length, 1);
+});
+
+test('realized trip length includes turns and the fractional final movement', () => {
+  const sim = new AirSimulation();
+  sim.drones = [sim.makeTrip('standard', 0, { x: 100, y: 100 }, { x: 200, y: 100 })];
+  sim.velocities = () => [{ vx: 0, vy: 10 }];
+  sim.moveDrones(1); sim.time = 1;
+  sim.velocities = () => [{ vx: 100, vy: -10 }];
+  sim.moveDrones(2);
+  assert.equal(sim.completed, 1);
+  assert.ok(Math.abs(sim.completedLengths[0].length - (10 + Math.hypot(100, 10))) < 1e-10);
+  assert.equal(sim.completedLengths[0].time, 2);
+});

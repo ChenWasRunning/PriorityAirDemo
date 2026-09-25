@@ -25,7 +25,9 @@
     .series-total { color: #007f76; }
     .series-standard { color: #2478d4; }
     .series-priority { color: #d93644; }
-    #flow-chart, #accumulation-chart { aspect-ratio: auto; height: 280px; border: 0; background: transparent; }
+    #flow-chart, #accumulation-chart, #estimate-chart { aspect-ratio: auto; height: 280px; border: 0; background: transparent; }
+    .series-ground { color: #000; }
+    .series-conventional { color: #8c52b3; }
     .accumulation-panel { margin-top: 12px; }
     .time-controls { display: flex; align-items: center; gap: 6px; min-width: 0; margin-right: auto; }
     #speed { width: 90px; min-width: 32px; }
@@ -146,6 +148,16 @@
           <span class="chart-x-label">Time [min]</span>
           <canvas id="accumulation-chart" aria-label="Five-minute average total, standard, and prioritized accumulation versus time, left y-axis"></canvas>
         </div>
+        <div class="chart-area accumulation-panel">
+          <div class="plot-legend" aria-label="Outflow estimate legend">
+            <span class="series-ground"><math><msub><mi>G</mi><mn>0</mn></msub></math><span class="equals">=</span><output id="g0-label">0.00</output><span>/s</span></span>
+            <span class="series-priority"><math><msub><mi>G</mi><mtext>proj</mtext></msub></math><span class="equals">=</span><output id="gproj-label">0.00</output><span>/s</span></span>
+            <span class="series-conventional"><math><msub><mi>G</mi><mtext>conv</mtext></msub></math><span class="equals">=</span><output id="gconv-label">--</output><span>/s</span></span>
+          </div>
+          <span class="chart-axis-label">Outflow <math><mi>G</mi></math></span>
+          <span class="chart-x-label">Time [min]</span>
+          <canvas id="estimate-chart" aria-label="Measured, projected-speed and true-speed outflow estimates versus time"></canvas>
+        </div>
       </section>
     </div>
     <section class="controls" aria-label="Simulation controls">
@@ -176,7 +188,7 @@
       </div>
     </section>
   </main>
-  <script src="simulation.js?v=uniform-arrivals-1"></script>
+  <script src="simulation.js?v=outflow-estimates-1"></script>
   <script>
     const defaults = Object.freeze({ q: 3.6, alpha: 0.3 });
     const visibility = { destinations: true, trajectories: true };
@@ -389,6 +401,7 @@
     new ResizeObserver(drawAirspace).observe(canvas);
     const flowChart = document.querySelector('#flow-chart');
     const accumulationChart = document.querySelector('#accumulation-chart');
+    const estimateChart = document.querySelector('#estimate-chart');
     function drawFlow() {
       const gLabel = document.querySelector('#g-label');
       const nLabel = document.querySelector('#n-label');
@@ -404,8 +417,13 @@
       const points = simulation.flowHistory.map((p, i) => ({ ...p, ...simulation.classFlowHistory[i] }));
       drawTimePlot(flowChart, points, 'g');
       drawTimePlot(accumulationChart, points, 'n');
+      for (const key of ['g0', 'gproj', 'gconv']) {
+        const value = simulation.estimateLabels[key];
+        document.querySelector(`#${key}-label`).textContent = Number.isFinite(value) ? value.toFixed(2) : '--';
+      }
+      drawTimePlot(estimateChart, simulation.estimateHistory, 'g', ['g0', 'gproj', 'gconv'], ['#000000', '#d93644', '#8c52b3']);
     }
-    function drawTimePlot(target, points, quantity) {
+    function drawTimePlot(target, points, quantity, keys = [quantity, `${quantity}s`, `${quantity}p`], colors = ['#007f76', '#2478d4', '#d93644']) {
       const width = target.clientWidth, height = target.clientHeight;
       const scale = window.devicePixelRatio || 1;
       if (target.width !== Math.round(width * scale) || target.height !== Math.round(height * scale)) {
@@ -416,17 +434,18 @@
       ctx.clearRect(0, 0, width, height);
       const { start, end } = simulation.completionSummary();
       const left = 48, right = width - 12, top = 12, bottom = height - 44;
-      const keys = [quantity, `${quantity}s`, `${quantity}p`];
-      const colors = ['#007f76', '#2478d4', '#d93644'];
       // Reserve enough vertical headroom for all three in-plot legend rows.
-      const maximum = Math.max(quantity === 'g' ? 0.1 : 1, ...points.flatMap(p => keys.map(key => p[key]))) * 1.6;
+      const values = points.flatMap(p => keys.map(key => p[key])).filter(Number.isFinite);
+      const maximum = Math.max(quantity === 'g' ? 0.1 : 1, ...values) * 1.6;
+      const minimum = Math.min(0, ...values) * 1.1;
       const x = t => left + (t - start) / (end - start) * (right - left);
-      const y = (v, max) => bottom - v / max * (bottom - top);
+      const y = (v, max) => bottom - (v - minimum) / (max - minimum) * (bottom - top);
       ctx.font = '11px system-ui'; ctx.lineWidth = 1;
       for (let i = 0; i <= 4; i++) {
-        const py = y(i / 4, 1);
+        const tick = minimum + (maximum - minimum) * i / 4;
+        const py = y(tick, maximum);
         ctx.strokeStyle = '#dbe2e1'; ctx.beginPath(); ctx.moveTo(left, py); ctx.lineTo(right, py); ctx.stroke();
-        ctx.fillStyle = '#596767'; ctx.textAlign = 'right'; ctx.fillText((maximum * i / 4).toFixed(quantity === 'g' ? 2 : 1), left - 6, py + 4);
+        ctx.fillStyle = '#596767'; ctx.textAlign = 'right'; ctx.fillText(tick.toFixed(quantity === 'g' ? 2 : 1), left - 6, py + 4);
       }
       ctx.fillStyle = '#596767'; ctx.textAlign = 'center';
       for (let t = Math.ceil(start / 120) * 120; t <= end; t += 120) ctx.fillText(String(t / 60), x(t), bottom + 18);
@@ -435,13 +454,20 @@
       ctx.save(); ctx.beginPath(); ctx.rect(left, top, right - left, bottom - top); ctx.clip();
       for (const [series, key] of keys.entries()) {
         ctx.strokeStyle = colors[series]; ctx.lineWidth = 2; ctx.setLineDash([]); ctx.beginPath();
-        points.forEach((point, i) => { if (i === 0) ctx.moveTo(x(point.time), y(point[key], maximum)); else ctx.lineTo(x(point.time), y(point[key], maximum)); });
+        let connected = false;
+        for (const point of points) {
+          if (!Number.isFinite(point[key])) { connected = false; continue; }
+          if (connected) ctx.lineTo(x(point.time), y(point[key], maximum));
+          else ctx.moveTo(x(point.time), y(point[key], maximum));
+          connected = true;
+        }
         ctx.stroke();
       }
       ctx.restore();
     }
     new ResizeObserver(drawFlow).observe(flowChart);
     new ResizeObserver(drawFlow).observe(accumulationChart);
+    new ResizeObserver(drawFlow).observe(estimateChart);
     drawFlow();
     drawAirspace();
   </script>

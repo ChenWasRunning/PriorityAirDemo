@@ -13,6 +13,9 @@ class AirSimulation {
     this.completed = 0;
     this.outflowSecond = -1;
     this.outflow = 0;
+    this.completedLengths = [];
+    this.estimateHistory = [{ time: 0, g0: 0, gproj: 0, gconv: null }];
+    this.estimateLabels = this.estimateHistory[0];
     this.completedByClass = { priority: 0, standard: 0 };
     this.classOutflow = { gp: 0, gs: 0 };
     this.classFlowHistory = [{ time: 0, gp: 0, gs: 0, np: 0, ns: 0 }];
@@ -43,7 +46,7 @@ class AirSimulation {
   makeTrip(kind, entryTime, origin, destination) {
     return { id: this.nextId++, kind, entryTime, origin, destination,
       distance: Math.hypot(destination.x - origin.x, destination.y - origin.y),
-      x: origin.x, y: origin.y, vx: 0, vy: 0,
+      x: origin.x, y: origin.y, vx: 0, vy: 0, realizedLength: 0,
       trail: [{ x: origin.x, y: origin.y }], trailSpacing: 1 };
   }
 
@@ -64,6 +67,9 @@ class AirSimulation {
           ns: Math.max(0, (this.classActiveTime.standard - this.activeTimeHistory[0].standard) / 300)
         };
         this.completionSummary();
+        const estimates = this.outflowEstimates();
+        if (end % 10 === 0) this.estimateHistory.push({ time: end, ...estimates });
+        if (end % 120 === 0) this.estimateLabels = { time: end, ...estimates };
         if (end % 10 === 0) this.flowHistory.push({ time: end, g: this.outflow, n: this.meanAccumulation });
         if (end % 120 === 0) this.flowLabels = { time: end, g: this.outflow, n: this.meanAccumulation };
         if (end % 10 === 0) this.classFlowHistory.push({ time: end, ...this.classOutflow, ...this.classAccumulation });
@@ -71,6 +77,7 @@ class AirSimulation {
       }
     }
     while (this.flowHistory.length > 1 && this.flowHistory[1].time <= this.time - 600) this.flowHistory.shift();
+    while (this.estimateHistory.length > 1 && this.estimateHistory[1].time <= this.time - 600) this.estimateHistory.shift();
     while (this.classFlowHistory.length > 1 && this.classFlowHistory[1].time <= this.time - 600) this.classFlowHistory.shift();
   }
 
@@ -171,12 +178,14 @@ class AirSimulation {
       if (Math.hypot(dx - fraction * sx, dy - fraction * sy) <= this.control.arrivalRadius) {
         this.activeTime += dt * fraction;
         this.classActiveTime[drone.kind] += dt * fraction;
-        completions.push({ time: this.time + dt * fraction, kind: drone.kind });
+        completions.push({ time: this.time + dt * fraction, kind: drone.kind,
+          length: drone.realizedLength + Math.sqrt(length2) * fraction });
         continue;
       }
       this.activeTime += dt;
       this.classActiveTime[drone.kind] += dt;
       drone.vx = sx / dt; drone.vy = sy / dt;
+      drone.realizedLength += Math.sqrt(length2);
       drone.x = nx; drone.y = ny;
       const last = drone.trail[drone.trail.length - 1];
       if (Math.hypot(nx - last.x, ny - last.y) >= drone.trailSpacing) {
@@ -189,10 +198,28 @@ class AirSimulation {
       survivors.push(drone);
     }
     this.drones = survivors;
-    for (const { time, kind } of completions.sort((a, b) => a.time - b.time)) {
+    for (const { time, kind, length } of completions.sort((a, b) => a.time - b.time)) {
+      this.completedLengths.push({ time, length });
       this.completedByClass[kind]++;
       this.completionHistory.push({ time, count: ++this.completed, ...this.completedByClass });
     }
+  }
+
+  outflowEstimates() {
+    while (this.completedLengths.length && this.completedLengths[0].time <= this.time - 300) this.completedLengths.shift();
+    const n = this.drones.length;
+    let speed = 0, projected = 0, distance = 0;
+    for (const drone of this.drones) {
+      speed += Math.hypot(drone.vx, drone.vy);
+      projected += (drone.vx * (drone.destination.x - drone.origin.x) +
+        drone.vy * (drone.destination.y - drone.origin.y)) / drone.distance;
+      distance += drone.distance;
+    }
+    const V = n ? speed / n : 0, U = n ? projected / n : 0;
+    const S = n ? distance / n : null;
+    const L = this.completedLengths.length ? this.completedLengths.reduce((sum, p) => sum + p.length, 0) / this.completedLengths.length : null;
+    return { n, U, V, S, L, g0: this.outflow,
+      gproj: n ? n * U / S : 0, gconv: L > 0 ? n * V / L : null };
   }
 
   completionSummary() {
