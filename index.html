@@ -25,7 +25,7 @@
     .series-total { color: #007f76; }
     .series-standard { color: #2478d4; }
     .series-priority { color: #d93644; }
-    #speed-chart, #estimate-chart { aspect-ratio: auto; height: 280px; border: 0; background: transparent; }
+    #flow-chart, #speed-chart { aspect-ratio: auto; height: 280px; border: 0; background: transparent; }
     .series-ground { color: #000; }
     .series-conventional { color: #8c52b3; }
     .accumulation-panel { margin-top: 12px; }
@@ -122,8 +122,9 @@
     </div>
     <div class="legend" aria-label="Drone classes">
       <div class="time-controls"><label for="speed">Speed</label><input id="speed" type="range" min="1" max="100" step="1" value="1"><output id="speed-value">1×</output></div>
-      <span><i></i>Prioritized (<math><msub><mi>n</mi><mtext mathvariant="bold">pr</mtext></msub></math> = <output id="snapshot-np">0</output>)</span>
-      <span><i class="standard"></i>Standard (<math><msub><mi>n</mi><mtext mathvariant="bold">st</mtext></msub></math> = <output id="snapshot-ns">0</output>)</span>
+      <span><i></i>Prioritized</span>
+      <span><i class="standard"></i>Standard</span>
+      <span>Acc. = <output id="snapshot-accumulation">0</output></span>
     </div>
     <div class="airspace-layout">
       <div class="airspace">
@@ -132,6 +133,16 @@
       </div>
       <section class="chart" aria-label="Five-minute average speeds and outflow estimates">
         <div class="chart-area">
+          <div class="plot-legend" aria-label="Outflow legend">
+            <span class="series-total"><math><msub><mi>G</mi><mtext mathvariant="bold">tot</mtext></msub></math><span class="equals">=</span><output id="g-label">0.00</output><span>/s</span></span>
+            <span class="series-standard"><math><msub><mi>G</mi><mtext mathvariant="bold">st</mtext></msub></math><span class="equals">=</span><output id="gs-label">0.00</output><span>/s</span></span>
+            <span class="series-priority"><math><msub><mi>G</mi><mtext mathvariant="bold">pr</mtext></msub></math><span class="equals">=</span><output id="gp-label">0.00</output><span>/s</span></span>
+          </div>
+          <span class="chart-axis-label">Outflow <math><mi>G</mi></math></span>
+          <span class="chart-x-label">Time [min]</span>
+          <canvas id="flow-chart" aria-label="Five-minute average total, standard, and prioritized outflow versus time"></canvas>
+        </div>
+        <div class="chart-area accumulation-panel">
           <div class="plot-legend" aria-label="Space-mean speed legend">
             <span class="series-conventional"><math><mi>V</mi></math><span class="equals">=</span><output id="v-label">0.0</output><span>m/s</span></span>
             <span class="series-priority"><math><mi>U</mi></math><span class="equals">=</span><output id="u-label">0.0</output><span>m/s</span></span>
@@ -139,16 +150,6 @@
           <span class="chart-axis-label">Space-mean speed [m/s]</span>
           <span class="chart-x-label">Time [min]</span>
           <canvas id="speed-chart" aria-label="Five-minute space-mean true and projected speeds versus time"></canvas>
-        </div>
-        <div class="chart-area accumulation-panel">
-          <div class="plot-legend" aria-label="Outflow estimate legend">
-            <span class="series-ground"><math><msub><mi>G</mi><mn>0</mn></msub></math><span class="equals">=</span><output id="g0-label">0.00</output><span>/s</span></span>
-            <span class="series-priority"><math><msub><mi>G</mi><mtext>proj</mtext></msub></math><span class="equals">=</span><output id="gproj-label">0.00</output><span>/s</span></span>
-            <span class="series-conventional"><math><msub><mi>G</mi><mtext>conv</mtext></msub></math><span class="equals">=</span><output id="gconv-label">--</output><span>/s</span></span>
-          </div>
-          <span class="chart-axis-label">Outflow <math><mi>G</mi></math></span>
-          <span class="chart-x-label">Time [min]</span>
-          <canvas id="estimate-chart" aria-label="Measured, projected-speed and true-speed outflow estimates versus time"></canvas>
         </div>
       </section>
     </div>
@@ -192,6 +193,7 @@
     const bindings = {};
     let frameId = null;
     let lastTime = null;
+    let lastAccumulationUpdate = -Infinity;
     const autoPauseInterval = 360 * 60;
     let nextAutoPause = autoPauseInterval;
     document.querySelector('#speed').addEventListener('input', event => {
@@ -298,6 +300,7 @@
       document.querySelector('#speed').value = 1;
       document.querySelector('#speed-value').textContent = '1×';
       simulation.reset();
+      lastAccumulationUpdate = -Infinity;
       Object.values(bindings).forEach(render => render());
       renderClock();
       renderStatus('Ready');
@@ -319,10 +322,11 @@
       });
     }
     function drawAirspace() {
-      let prioritized = 0;
-      for (const trip of simulation.drones) prioritized += trip.kind === 'priority' ? 1 : 0;
-      document.querySelector('#snapshot-np').textContent = prioritized;
-      document.querySelector('#snapshot-ns').textContent = simulation.drones.length - prioritized;
+      const now = performance.now();
+      if (now - lastAccumulationUpdate >= 2000) {
+        document.querySelector('#snapshot-accumulation').textContent = simulation.drones.length;
+        lastAccumulationUpdate = now;
+      }
       const size = canvas.clientWidth;
       const scale = window.devicePixelRatio || 1;
       if (canvas.width !== Math.round(size * scale) || canvas.height !== Math.round(size * scale)) {
@@ -395,19 +399,20 @@
       }
     }
     new ResizeObserver(drawAirspace).observe(canvas);
+    const flowChart = document.querySelector('#flow-chart');
     const speedChart = document.querySelector('#speed-chart');
-    const estimateChart = document.querySelector('#estimate-chart');
     function drawFlow() {
+      const gValues = { g: simulation.flowLabels.g, gs: simulation.classFlowLabels.gs, gp: simulation.classFlowLabels.gp };
+      for (const key of ['g', 'gs', 'gp']) {
+        document.querySelector(`#${key}-label`).textContent = gValues[key].toFixed(2);
+      }
+      const flowPoints = simulation.flowHistory.map((point, i) => ({ ...point, ...simulation.classFlowHistory[i] }));
+      drawTimePlot(flowChart, flowPoints, 'g');
       for (const key of ['V', 'U']) {
         const value = simulation.estimateLabels[key];
         document.querySelector(`#${key.toLowerCase()}-label`).textContent = Number.isFinite(value) ? value.toFixed(1) : '--';
       }
       drawTimePlot(speedChart, simulation.estimateHistory, 'v', ['V', 'U'], ['#8c52b3', '#d93644']);
-      for (const key of ['g0', 'gproj', 'gconv']) {
-        const value = simulation.estimateLabels[key];
-        document.querySelector(`#${key}-label`).textContent = Number.isFinite(value) ? value.toFixed(2) : '--';
-      }
-      drawTimePlot(estimateChart, simulation.estimateHistory, 'g', ['g0', 'gproj', 'gconv'], ['#000000', '#d93644', '#8c52b3']);
     }
     function drawTimePlot(target, points, quantity, keys = [quantity, `${quantity}s`, `${quantity}p`], colors = ['#007f76', '#2478d4', '#d93644']) {
       const width = target.clientWidth, height = target.clientHeight;
@@ -451,8 +456,8 @@
       }
       ctx.restore();
     }
+    new ResizeObserver(drawFlow).observe(flowChart);
     new ResizeObserver(drawFlow).observe(speedChart);
-    new ResizeObserver(drawFlow).observe(estimateChart);
     drawFlow();
     drawAirspace();
   </script>
