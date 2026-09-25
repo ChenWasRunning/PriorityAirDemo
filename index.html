@@ -122,9 +122,8 @@
     </div>
     <div class="legend" aria-label="Drone classes">
       <div class="time-controls"><label for="speed">Speed</label><input id="speed" type="range" min="1" max="100" step="1" value="1"><output id="speed-value">1×</output></div>
-      <span><i></i>Prioritized</span>
-      <span><i class="standard"></i>Standard</span>
-      <span>Acc. = <output id="snapshot-accumulation">0</output></span>
+      <span><i></i>Prioritized (Acc. = <output id="snapshot-np">0</output>)</span>
+      <span><i class="standard"></i>Standard (Acc. = <output id="snapshot-ns">0</output>)</span>
     </div>
     <div class="airspace-layout">
       <div class="airspace">
@@ -323,8 +322,11 @@
     }
     function drawAirspace() {
       const now = performance.now();
-      if (now - lastAccumulationUpdate >= 2000) {
-        document.querySelector('#snapshot-accumulation').textContent = simulation.drones.length;
+      if (now - lastAccumulationUpdate >= 1000) {
+        let prioritized = 0;
+        for (const trip of simulation.drones) prioritized += trip.kind === 'priority' ? 1 : 0;
+        document.querySelector('#snapshot-np').textContent = prioritized;
+        document.querySelector('#snapshot-ns').textContent = simulation.drones.length - prioritized;
         lastAccumulationUpdate = now;
       }
       const size = canvas.clientWidth;
